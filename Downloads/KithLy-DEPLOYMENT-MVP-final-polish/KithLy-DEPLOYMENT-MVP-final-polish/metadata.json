@@ -1,0 +1,7 @@
+{
+  "name": "KithLy Marketplace",
+  "description": "KithLy is a marketing and entry portal for both customers and shops, facilitating cross-border gifting, groceries, and support with a sleek, modern user experience.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
