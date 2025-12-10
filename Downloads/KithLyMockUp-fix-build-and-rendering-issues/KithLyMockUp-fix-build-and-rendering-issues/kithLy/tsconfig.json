@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOMIterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Recommended Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    
+    /* Path Alias Configuration */
+    // NOTE: baseUrl is now set to resolve relative to this file's location.
+    // This allows the "paths" mapping to work correctly.
+    "baseUrl": "./", 
+    "paths": {
+      "@/*": ["./src/*"] // Maps @/ to the src directory
+    }
+  },
+  "include": ["src/**/*"]
+  // You can remove the "references" if you don't use a secondary tsconfig.node.json
+}

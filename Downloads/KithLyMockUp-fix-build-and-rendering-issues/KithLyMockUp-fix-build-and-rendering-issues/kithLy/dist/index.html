@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KithLy Marketplace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'kithly-primary': '#F85A47',
+              'kithly-secondary': '#F9732C',
+              'kithly-accent': '#F9A826',
+              'kithly-dark': '#4A4A4C',
+              'kithly-light': '#F5F5F7',
+              'kithly-background': '#FFFBF9',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+      
+      /* Modern Sleek Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      
+      ::-webkit-scrollbar-thumb {
+        background-color: rgba(156, 163, 175, 0.3); /* Gray-400 with opacity */
+        border-radius: 20px;
+        transition: background-color 0.2s ease;
+      }
+      
+      ::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(107, 114, 128, 0.6); /* Gray-500 with opacity */
+      }
+
+      /* Firefox */
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
+      }
+
+      /* Utility to completely hide scrollbars */
+      .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+      }
+      .scrollbar-hide {
+          -ms-overflow-style: none;  /* IE and Edge */
+          scrollbar-width: none;  /* Firefox */
+      }
+
+      .gradient-text {
+        background: linear-gradient(180deg, #F85A47 0%, #F9732C 35%, #F9A826 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        text-fill-color: transparent;
+      }
+      .gradient-bg {
+        background: linear-gradient(180deg, #F85A47 0%, #F9732C 35%, #F9A826 100%);
+      }
+      .gradient-border {
+        border: 2px solid transparent;
+        background-clip: padding-box;
+        border-image: linear-gradient(180deg, #F85A47 0%, #F9732C 35%, #F9A826 100%) 1;
+      }
+      .gradient-border-button {
+         position: relative;
+         background: white;
+         color: #4A4A4C;
+         border-radius: 12px;
+      }
+      .gradient-border-button::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 12px;
+        padding: 2px;
+        background: linear-gradient(180deg, #F85A47 0%, #F9732C 35%, #F9A826 100%);
+        -webkit-mask: 
+           linear-gradient(#fff 0 0) content-box, 
+           linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+           mask-composite: exclude;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in {
+        animation: fadeIn 0.5s ease-out forwards;
+      }
+      @keyframes progress-circle {
+        from { stroke-dashoffset: 78.54; } /* 2 * PI * 12.5 */
+        to { stroke-dashoffset: 0; }
+      }
+      .animate-progress {
+        animation: progress-circle 5s linear forwards;
+      }
+      @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
+      }
+      .animate-float {
+        animation: float 4s ease-in-out infinite;
+      }
+      .flying-image {
+        position: fixed;
+        z-index: 1000;
+        pointer-events: none;
+        transition: left 0.6s cubic-bezier(0.5, -0.5, 1, 1), top 0.6s cubic-bezier(0.5, 0, 1, 0.5), width 0.6s ease-in-out, height 0.6s ease-in-out, opacity 0.6s ease-in, border-radius 0.6s ease-in-out, transform 0.6s cubic-bezier(0.5, 0, 1, 0.5);
+        border-radius: 0.75rem; /* Match product card */
+      }
+      @keyframes cart-bounce {
+        0%, 100% { transform: scale(1); }
+        30% { transform: scale(1.4); }
+        60% { transform: scale(0.9); }
+      }
+      .animate-cart-bounce {
+        animation: cart-bounce 0.5s ease-in-out;
+      }
+      @keyframes like-pop {
+        0%, 100% { transform: scale(1); }
+        30% { transform: scale(1.3); }
+        60% { transform: scale(0.9); }
+      }
+      .animate-like-pop {
+        animation: like-pop 0.4s ease-in-out;
+      }
+      @keyframes modal-scale-in {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+      }
+      .animate-modal-scale-in {
+        animation: modal-scale-in 0.3s ease-out forwards;
+      }
+    </style>
+<link rel="stylesheet" href="/index.css">
+  <script type="module" crossorigin src="/assets/index-ksyNlsI2.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-BV1OsJaw.css">
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
