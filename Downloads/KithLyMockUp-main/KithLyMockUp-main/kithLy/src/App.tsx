@@ -283,6 +283,14 @@ const App: React.FC = () => {
             orders={orders}
             onCartClick={() => setIsCartOpen(true)}
             cartItemCount={cart.length}
+            showToast={showToast}
+            targetCity={targetCity}
+            setTargetCity={setTargetCity}
+            onSendReview={(review) => {
+              // Handle review submission
+              console.log('Review submitted:', review);
+              showToast('Thank you for your review!', 'success');
+            }}
           />
         );
 
