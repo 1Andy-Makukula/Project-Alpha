@@ -12,6 +12,10 @@ import ProductManagementCard from '../components/ProductManagementCard';
 import OrderCard, { Order } from '../components/OrderCard';
 import { generateReceipt } from '../utils/receiptGenerator';
 import AnimatedBackButton from '../components/AnimatedBackButton';
+import { calculateShopAnalytics, formatCurrency, formatPercentage } from '../services/analyticsService';
+import AnalyticsCard from '../components/AnalyticsCard';
+import RevenueChart from '../components/RevenueChart';
+import PerformanceDashboard from '../components/PerformanceDashboard';
 
 interface ShopPortalProps {
     setView: (view: View) => void;
@@ -194,8 +198,14 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
         newOrders: true,
         pickup: true,
         payouts: true,
-        marketing: false
+        marketing: false,
+        lowStock: true, // Added lowStock preference
     });
+
+    // Calculate comprehensive shop analytics
+    const shopAnalytics = useMemo(() => {
+        return calculateShopAnalytics(orders, products);
+    }, [orders, products]);
 
     const settingsTabs = [
         { id: 'shopInfo', name: 'Shop Profile', icon: <UserIcon className="w-5 h-5" /> },
@@ -541,72 +551,130 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
                         <div className="flex flex-col md:flex-row justify-between items-end gap-4">
                             <div>
                                 <h2 className="text-3xl font-bold text-gray-800">Dashboard Analysis</h2>
-                                <p className="text-gray-500 mt-1">Overview of your shop's performance and payouts.</p>
+                                <p className="text-gray-500 mt-1">Comprehensive overview of your shop's performance and insights.</p>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                            {/* AVAILABLE (GREEN) */}
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-green-100 relative overflow-hidden transition-transform hover:-translate-y-1 duration-300">
-                                <div className="absolute right-0 top-0 h-full w-1 bg-green-500"></div>
-                                <div className="flex justify-between items-center">
-                                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Available Payout</h3>
-                                    <div className="bg-green-100 text-green-600 p-2 rounded-full"><DollarIcon className="w-6 h-6" /></div>
+                        {/* Enhanced Performance Dashboard */}
+                        <PerformanceDashboard analytics={shopAnalytics} />
+
+                        {/* Revenue Chart */}
+                        <RevenueChart data={shopAnalytics.dailyRevenue} />
+
+                        {/* Quick Analytics Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <AnalyticsCard
+                                title="Today's Revenue"
+                                value={formatCurrency(shopAnalytics.todayRevenue)}
+                                change={shopAnalytics.yesterdayRevenue > 0
+                                    ? ((shopAnalytics.todayRevenue - shopAnalytics.yesterdayRevenue) / shopAnalytics.yesterdayRevenue) * 100
+                                    : 0}
+                                changeLabel="vs yesterday"
+                                icon={<DollarIcon className="w-6 h-6" />}
+                                iconBgColor="bg-green-100"
+                                iconColor="text-green-600"
+                                borderColor="border-green-100"
+                            />
+
+                            <AnalyticsCard
+                                title="Week Revenue"
+                                value={formatCurrency(shopAnalytics.weekRevenue)}
+                                change={shopAnalytics.revenueTrend}
+                                changeLabel="vs last week"
+                                icon={<TrendingUpIcon className="w-6 h-6" />}
+                                iconBgColor="bg-blue-100"
+                                iconColor="text-blue-600"
+                                borderColor="border-blue-100"
+                            />
+
+                            <AnalyticsCard
+                                title="Total Orders"
+                                value={shopAnalytics.totalOrders}
+                                subtitle={`${shopAnalytics.weekOrders} this week`}
+                                icon={<PackageIcon className="w-6 h-6" />}
+                                iconBgColor="bg-purple-100"
+                                iconColor="text-purple-600"
+                                borderColor="border-purple-100"
+                            />
+
+                            <AnalyticsCard
+                                title="Avg Order Value"
+                                value={formatCurrency(shopAnalytics.averageOrderValue)}
+                                change={shopAnalytics.averageOrderValueTrend}
+                                changeLabel="vs last week"
+                                icon={<ReceiptIcon className="w-6 h-6" />}
+                                iconBgColor="bg-orange-100"
+                                iconColor="text-orange-600"
+                                borderColor="border-orange-100"
+                            />
+                        </div>
+
+                        {/* Wallet Stats Section */}
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-800 mb-4">Wallet & Payouts</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                                {/* AVAILABLE (GREEN) */}
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-green-100 relative overflow-hidden transition-transform hover:-translate-y-1 duration-300">
+                                    <div className="absolute right-0 top-0 h-full w-1 bg-green-500"></div>
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Available Payout</h3>
+                                        <div className="bg-green-100 text-green-600 p-2 rounded-full"><DollarIcon className="w-6 h-6" /></div>
+                                    </div>
+                                    <p className="text-3xl font-bold mt-2 text-gray-900">
+                                        ZMK <AnimatedNumber value={walletStats.available} formatter={(v) => v.toFixed(2)} />
+                                    </p>
+                                    <p className="text-xs text-green-600 mt-2 font-medium flex items-center">
+                                        <CheckCircleIcon className="w-3 h-3 mr-1" /> Ready for withdrawal
+                                    </p>
                                 </div>
-                                <p className="text-3xl font-bold mt-2 text-gray-900">
-                                    ZMK <AnimatedNumber value={walletStats.available} formatter={(v) => v.toFixed(2)} />
-                                </p>
-                                <p className="text-xs text-green-600 mt-2 font-medium flex items-center">
-                                    <CheckCircleIcon className="w-3 h-3 mr-1" /> Ready for withdrawal
-                                </p>
-                            </div>
-                            {/* PENDING (ORANGE) with Tooltip */}
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-orange-100 transition-transform hover:-translate-y-1 duration-300 group relative">
-                                <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-1">
-                                        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Pending Collection</h3>
-                                        <div className="relative group/tooltip cursor-help">
-                                            <HelpCircleIcon className="w-4 h-4 text-gray-400 hover:text-kithly-primary" />
-                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-10 text-center">
-                                                Funds are released once the recipient collects the item and the QR code is verified.
-                                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                                {/* PENDING (ORANGE) with Tooltip */}
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-orange-100 transition-transform hover:-translate-y-1 duration-300 group relative">
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-1">
+                                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Pending Collection</h3>
+                                            <div className="relative group/tooltip cursor-help">
+                                                <HelpCircleIcon className="w-4 h-4 text-gray-400 hover:text-kithly-primary" />
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-10 text-center">
+                                                    Funds are released once the recipient collects the item and the QR code is verified.
+                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                                                </div>
                                             </div>
                                         </div>
+                                        <div className="bg-orange-100 text-orange-600 p-2 rounded-full"><ClockIcon className="w-6 h-6" /></div>
                                     </div>
-                                    <div className="bg-orange-100 text-orange-600 p-2 rounded-full"><ClockIcon className="w-6 h-6" /></div>
+                                    <p className="text-3xl font-bold mt-2 text-gray-900">
+                                        ZMK <AnimatedNumber value={walletStats.pending} formatter={(v) => v.toFixed(2)} />
+                                    </p>
+                                    <p className="text-xs text-orange-600 mt-2 font-medium">Locked until scanned</p>
                                 </div>
-                                <p className="text-3xl font-bold mt-2 text-gray-900">
-                                    ZMK <AnimatedNumber value={walletStats.pending} formatter={(v) => v.toFixed(2)} />
-                                </p>
-                                <p className="text-xs text-orange-600 mt-2 font-medium">Locked until scanned</p>
-                            </div>
 
-                            {/* Platform Fees Card - Enhanced Transparency */}
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 transition-transform hover:-translate-y-1 duration-300">
-                                <div className="flex justify-between items-center">
-                                    <h3 className="text-sm font-semibold text-gray-500">Fees Paid</h3>
-                                    <div className="bg-gray-100 text-gray-600 p-2 rounded-full"><ReceiptIcon className="w-6 h-6" /></div>
+                                {/* Platform Fees Card - Enhanced Transparency */}
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 transition-transform hover:-translate-y-1 duration-300">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="text-sm font-semibold text-gray-500">Fees Paid</h3>
+                                        <div className="bg-gray-100 text-gray-600 p-2 rounded-full"><ReceiptIcon className="w-6 h-6" /></div>
+                                    </div>
+                                    <p className="text-3xl font-bold mt-2 text-gray-800">
+                                        ZMK <AnimatedNumber value={totalFees} formatter={(v) => v.toFixed(2)} />
+                                    </p>
+                                    <div className="text-xs text-gray-500 mt-2 space-y-1">
+                                        <div className="flex justify-between"><span>Kithly (5%):</span> <span>ZMK {(analysisData.revenue * 0.05).toFixed(2)}</span></div>
+                                        <div className="flex justify-between"><span>Processing (2.9%):</span> <span>ZMK {(analysisData.revenue * 0.029).toFixed(2)}</span></div>
+                                    </div>
                                 </div>
-                                <p className="text-3xl font-bold mt-2 text-gray-800">
-                                    ZMK <AnimatedNumber value={totalFees} formatter={(v) => v.toFixed(2)} />
-                                </p>
-                                <div className="text-xs text-gray-500 mt-2 space-y-1">
-                                    <div className="flex justify-between"><span>Kithly (5%):</span> <span>ZMK {(analysisData.revenue * 0.05).toFixed(2)}</span></div>
-                                    <div className="flex justify-between"><span>Processing (2.9%):</span> <span>ZMK {(analysisData.revenue * 0.029).toFixed(2)}</span></div>
-                                </div>
-                            </div>
 
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 transition-transform hover:-translate-y-1 duration-300">
-                                <div className="flex justify-between items-center">
-                                    <h3 className="text-sm font-semibold text-gray-500">Total Orders</h3>
-                                    <div className="bg-blue-50 text-blue-600 p-2 rounded-full"><PackageIcon className="w-6 h-6" /></div>
-                                </div>
-                                <p className="text-3xl font-bold mt-2 text-gray-800">
-                                    <AnimatedNumber value={walletStats.totalOrders} />
-                                </p>
-                                <div className="flex items-center mt-2 text-xs font-semibold text-blue-600 bg-blue-50 inline-block px-2 py-1 rounded-md w-fit">
-                                    <TrendingUpIcon className="w-3 h-3 mr-1" />
-                                    <span>+15% vs last week</span>
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 transition-transform hover:-translate-y-1 duration-300">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="text-sm font-semibold text-gray-500">Total Orders</h3>
+                                        <div className="bg-blue-50 text-blue-600 p-2 rounded-full"><PackageIcon className="w-6 h-6" /></div>
+                                    </div>
+                                    <p className="text-3xl font-bold mt-2 text-gray-800">
+                                        <AnimatedNumber value={walletStats.totalOrders} />
+                                    </p>
+                                    <div className="flex items-center mt-2 text-xs font-semibold text-blue-600 bg-blue-50 inline-block px-2 py-1 rounded-md w-fit">
+                                        <TrendingUpIcon className="w-3 h-3 mr-1" />
+                                        <span>+15% vs last week</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -910,8 +978,8 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
                                     key={tab.id}
                                     onClick={() => setActiveSettingsTab(tab.id)}
                                     className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${activeSettingsTab === tab.id
-                                            ? 'bg-white text-kithly-primary shadow-sm'
-                                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                                        ? 'bg-white text-kithly-primary shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                                         }`}
                                 >
                                     {tab.icon}
