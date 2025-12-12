@@ -241,38 +241,40 @@ const App: React.FC = () => {
         }
         return (
           <ShopView
-            shop={selectedShop}
-            onBack={() => navigate('customerPortal')}
+            setView={navigate}
+            shopId={selectedShopId}
             onAddToCart={handleAddToCart}
             cartItemCount={cart.length}
             onCartClick={() => setIsCartOpen(true)}
             likedItems={likedItems}
-            onLikeToggle={(productId) => {
+            onToggleLike={(productId) => {
               setLikedItems(prev =>
                 prev.includes(productId)
                   ? prev.filter(id => id !== productId)
                   : [...prev, productId]
               );
             }}
+            showToast={showToast}
+            targetCity={targetCity}
+            setTargetCity={setTargetCity}
           />
         );
 
       case 'checkout':
         return (
           <CheckoutPage
+            setView={navigate}
             cart={cart.filter(item => item.shopId === checkoutShopId)}
-            onBack={() => navigate('customerPortal')}
             onCheckout={handleCheckout}
-            shopId={checkoutShopId}
-            shops={shops}
+            showToast={showToast}
           />
         );
 
       case 'orderSuccess':
         return (
           <OrderSuccessPage
-            orders={lastCompletedOrders}
-            onContinueShopping={() => navigate('customerPortal')}
+            setView={navigate}
+            newOrders={lastCompletedOrders}
           />
         );
 

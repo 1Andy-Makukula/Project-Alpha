@@ -4,10 +4,10 @@ import {
   UserIcon,
   PackageIcon,
   TrendingUpIcon,
-  StarIcon,
-  AlertTriangleIcon,
+  ExclamationTriangleIcon,
   CheckCircleIcon
 } from './icons/NavigationIcons';
+import { StarIcon } from './icons/FeatureIcons';
 
 interface PerformanceDashboardProps {
   analytics: ShopAnalytics;
@@ -136,7 +136,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ analytics }
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-yellow-200">
           <div className="flex items-center gap-3 mb-4">
             <div className="bg-yellow-100 text-yellow-600 p-3 rounded-xl">
-              <AlertTriangleIcon className="w-6 h-6" />
+              <ExclamationTriangleIcon className="w-6 h-6" />
             </div>
             <h4 className="font-bold text-gray-800">Stock Alerts</h4>
           </div>
