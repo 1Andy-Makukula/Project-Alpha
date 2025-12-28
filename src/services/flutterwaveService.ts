@@ -1,0 +1,54 @@
+
+import { useFlutterwave, closePaymentModal } from 'flutterwave-react-v3';
+
+/**
+ * Interface for Flutterwave configuration
+ */
+export interface FlutterwaveConfig {
+  public_key: string;
+  tx_ref: string;
+  amount: number;
+  currency: string;
+  payment_options: string;
+  customer: {
+    email: string;
+    phone_number: string;
+    name: string;
+  };
+  customizations: {
+    title: string;
+    description: string;
+    logo: string;
+  };
+  callback: (response: any) => void;
+  onClose: () => void;
+}
+
+/**
+ * Service to handle Flutterwave payments
+ */
+export const useFlutterwavePayment = (config: FlutterwaveConfig) => {
+  const handlePayment = useFlutterwave({
+    public_key: config.public_key,
+    tx_ref: config.tx_ref,
+    amount: config.amount,
+    currency: config.currency,
+    payment_options: config.payment_options,
+    customer: config.customer,
+    customizations: config.customizations,
+  });
+
+  return {
+    handlePayment: () => {
+      handlePayment({
+        callback: (response) => {
+          config.callback(response);
+          closePaymentModal(); // verify this method exists or if it's needed
+        },
+        onClose: () => {
+          config.onClose();
+        },
+      });
+    }
+  };
+};
