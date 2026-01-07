@@ -6,14 +6,14 @@
 
 export const API_CONFIG = {
   /**
-   * API Mode: 'mock' for local stub data, 'live' for Django backend
+   * API Mode: 'mock' for local stub data, 'live' for PHP backend
    */
   mode: (import.meta.env.VITE_API_MODE || 'mock') as 'mock' | 'live',
 
   /**
-   * Base URL for Django REST API
+   * Base URL for PHP API
    */
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost/kithly-api/api',
 
   /**
    * Auth token storage key
@@ -35,59 +35,61 @@ export const API_CONFIG = {
 };
 
 /**
- * @desc API endpoint paths matching Django backend routes
+ * @desc API endpoint paths matching PHP backend routes
  */
 export const API_ENDPOINTS = {
   // Authentication
   AUTH: {
-    LOGIN: '/auth/login/',
-    REGISTER: '/auth/register/',
-    LOGOUT: '/auth/logout/',
-    REFRESH: '/auth/refresh/',
-    ME: '/auth/me/',
+    LOGIN: '/login.php',
+    REGISTER: '/signup.php',
+    LOGOUT: '/logout.php',
+    REFRESH: '/refresh_token.php',
+    ME: '/me.php',
   },
 
   // Orders
   ORDERS: {
-    LIST: '/orders/',
-    CREATE: '/orders/',
-    DETAIL: (id: string) => `/orders/${id}/`,
-    VERIFY: (id: string) => `/orders/${id}/verify/`,
-    BY_CODE: (code: string) => `/orders/by-code/${code}/`,
-    EXPORT_CSV: '/orders/export/csv/',
+    LIST: '/orders.php',
+    CREATE: '/orders.php',
+    // For detail, we'll likely use query params in the service layer or path parameters if backend supports it.
+    // Assuming simple PHP without routing engine:
+    DETAIL: (id: string) => `/orders.php?id=${id}`,
+    VERIFY: (id: string) => `/orders_verify.php?id=${id}`, // or orders.php?action=verify&id=...
+    BY_CODE: (code: string) => `/orders.php?code=${code}`,
+    EXPORT_CSV: '/orders_export.php',
   },
 
   // Products
   PRODUCTS: {
-    LIST: '/products/',
-    CREATE: '/products/',
-    DETAIL: (id: number) => `/products/${id}/`,
-    UPDATE: (id: number) => `/products/${id}/`,
-    DELETE: (id: number) => `/products/${id}/`,
-    BY_SHOP: (shopId: number) => `/products/?shopId=${shopId}`,
+    LIST: '/products.php',
+    CREATE: '/products.php',
+    DETAIL: (id: number) => `/products.php?id=${id}`,
+    UPDATE: (id: number) => `/products.php?id=${id}`, // Method PUT/PATCH
+    DELETE: (id: number) => `/products.php?id=${id}`, // Method DELETE
+    BY_SHOP: (shopId: number) => `/products.php?shopId=${shopId}`,
   },
 
   // Shops
   SHOPS: {
-    LIST: '/shops/',
-    CREATE: '/shops/',
-    DETAIL: (id: number) => `/shops/${id}/`,
-    UPDATE: (id: number) => `/shops/${id}/`,
-    DELETE: (id: number) => `/shops/${id}/`,
+    LIST: '/shops.php',
+    CREATE: '/shops.php',
+    DETAIL: (id: number) => `/shops.php?id=${id}`,
+    UPDATE: (id: number) => `/shops.php?id=${id}`,
+    DELETE: (id: number) => `/shops.php?id=${id}`,
   },
 
   // Reviews
   REVIEWS: {
-    LIST: '/reviews/',
-    CREATE: '/reviews/',
-    BY_SHOP: (shopId: number) => `/reviews/?shopId=${shopId}`,
+    LIST: '/reviews.php',
+    CREATE: '/reviews.php',
+    BY_SHOP: (shopId: number) => `/reviews.php?shopId=${shopId}`,
   },
 
   // Payments
   PAYMENTS: {
-    INITIATE: '/payments/initiate/',
-    VERIFY: '/payments/verify/',
-    WEBHOOK: '/payments/webhook/',
+    INITIATE: '/payments_initiate.php',
+    VERIFY: '/payments_verify.php',
+    WEBHOOK: '/payments_webhook.php',
   },
 };
 

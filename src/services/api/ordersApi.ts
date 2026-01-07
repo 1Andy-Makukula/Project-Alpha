@@ -1,7 +1,7 @@
 /**
  * @file ordersApi.ts
  * @description API service for order operations.
- * This calls the PHP backend.
+ * This will call the Django backend when ready.
  */
 
 import { Order } from '../../types';
