@@ -14,7 +14,6 @@ import NotificationPage from './pages/NotificationPage';
 import ProfilePage from './pages/ProfilePage';
 import SecurityPage from './pages/SecurityPage';
 import PaymentsPage from './pages/PaymentsPage';
-import PinLocationPage from './pages/PinLocationPage';
 import { AboutUs, Careers, Press, TermsOfService, PrivacyPolicy, CookiePolicy } from './pages/StaticPages';
 import { RegisterCustomer, RegisterShop } from './pages/RegisterPages';
 import { useServices } from './context/ServiceContext';
@@ -30,13 +29,16 @@ import { filterShopsByGeolocation } from './services/geolocationService';
  * and data flow between different views.
  * @returns {React.ReactElement} The rendered application.
  */
-const App: React.FC = () => {
+import LoginPage from './pages/LoginPage';
+import { useAuth } from './contexts/AuthContext';
+
+/**
+ * @desc The main application content, wrapped in providers.
+ */
+const AppContent: React.FC = () => {
   // --- Core Services ---
-  /**
-   * @desc Access to the backend service layer (database, notifications).
-   * @todo The backend logic is currently mocked. Swap with a real implementation in ServiceProvider.
-   */
   const { db, notify } = useServices();
+  const { currentUser } = useAuth();
 
   // --- Application State ---
   const [view, setView] = useState<View>('landing');
@@ -194,8 +196,6 @@ const App: React.FC = () => {
   const handleCheckout = async (
     recipient: { name: string; email: string; phone: string },
     message: string,
-    deliveryMethod: string,
-    deliveryType: 'collection' | 'delivery',
     additionalDetails?: { pickupTime?: string; orderType?: 'request' | 'instant' }
   ) => {
     if (!checkoutShopId) return;
@@ -218,14 +218,15 @@ const App: React.FC = () => {
       total,
       itemCount,
       status: isRequest ? 'pending' : 'paid',
-      deliveryMethod: deliveryType === 'collection' ? 'pickup' : 'delivery',
       collectionCode: `KLY-${Math.random().toString(36).substring(2, 12).toUpperCase()}`,
       shopName: shop?.name || 'Unknown Shop',
+      shopId: checkoutShopId,
       message,
       items: shopCart.map(item => ({ ...item.product, quantity: item.quantity })),
       pickupTime: additionalDetails?.pickupTime,
       orderType: additionalDetails?.orderType,
-      approvalStatus: isRequest ? 'pending' : 'approved'
+      approvalStatus: isRequest ? 'pending' : 'approved',
+      recipient_phone: recipient.phone,
     };
 
     try {
@@ -250,12 +251,23 @@ const App: React.FC = () => {
   const renderView = () => {
     const selectedShop = selectedShopId ? shops.find(s => s.id === selectedShopId) : null;
 
+    // Auth Guard Helper
+    const ProtectedRoute = (component: React.ReactElement) => {
+      if (!currentUser) {
+        return <LoginPage setView={navigate} />;
+      }
+      return component;
+    };
+
     switch (view) {
       case 'landing':
-        return <LandingPage setView={navigate} targetCity={targetCity} setTargetCity={setTargetCity} />;
+        return <LandingPage setView={navigate} />;
+
+      case 'login':
+        return <LoginPage setView={navigate} />;
 
       case 'customerPortal':
-        return (
+        return ProtectedRoute(
           <CustomerPortal
             setView={navigate}
             cartItemCount={cart.length}
@@ -272,7 +284,7 @@ const App: React.FC = () => {
           navigate('customerPortal');
           return null;
         }
-        return (
+        return ProtectedRoute(
           <ShopView
             setView={navigate}
             shopId={selectedShopId}
@@ -294,7 +306,7 @@ const App: React.FC = () => {
         );
 
       case 'checkout':
-        return (
+        return ProtectedRoute(
           <CheckoutPage
             setView={navigate}
             cart={cart.filter(item => item.shopId === checkoutShopId)}
@@ -304,7 +316,7 @@ const App: React.FC = () => {
         );
 
       case 'orderSuccess':
-        return (
+        return ProtectedRoute(
           <OrderSuccessPage
             setView={navigate}
             newOrders={lastCompletedOrders}
@@ -312,11 +324,8 @@ const App: React.FC = () => {
           />
         );
 
-      case 'pinLocation':
-        return <PinLocationPage setView={navigate} orderId={activeOrderId} onUpdateOrder={handleUpdateOrder} />;
-
       case 'customerDashboard':
-        return (
+        return ProtectedRoute(
           <CustomerDashboard
             setView={navigate}
             orders={orders}
@@ -339,7 +348,7 @@ const App: React.FC = () => {
           available: orders.filter(o => o.status === 'collected').reduce((sum, o) => sum + o.total, 0),
           totalOrders: orders.length
         };
-        return (
+        return ProtectedRoute(
           <ShopPortal
             setView={navigate}
             orders={orders}
@@ -403,29 +412,35 @@ const App: React.FC = () => {
         return <PaymentsPage setView={navigate} />;
 
       default:
-        return <LandingPage setView={navigate} targetCity={targetCity} setTargetCity={setTargetCity} />;
+        return <LandingPage setView={navigate} />;
     }
   };
 
   return (
+    <div className="bg-kithly-background text-kithly-dark">
+      <Toaster position="top-center" richColors />
+      {renderView()}
+      <CartSidebar
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        cart={cart}
+        onUpdateQuantity={handleUpdateCartQuantity}
+        onRemoveItem={handleRemoveFromCart}
+        onCheckoutShop={(shopId) => {
+          setCheckoutShopId(shopId);
+          setIsCartOpen(false);
+          navigate('checkout');
+        }}
+        onClearShop={handleClearCartShop}
+      />
+    </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
     <AuthProvider>
-      <div className="bg-kithly-background text-kithly-dark">
-        <Toaster position="top-center" richColors />
-        {renderView()}
-        <CartSidebar
-          isOpen={isCartOpen}
-          onClose={() => setIsCartOpen(false)}
-          cart={cart}
-          onUpdateQuantity={handleUpdateCartQuantity}
-          onRemoveItem={handleRemoveFromCart}
-          onCheckoutShop={(shopId) => {
-            setCheckoutShopId(shopId);
-            setIsCartOpen(false);
-            navigate('checkout');
-          }}
-          onClearShop={handleClearCartShop}
-        />
-      </div>
+      <AppContent />
     </AuthProvider>
   );
 };
