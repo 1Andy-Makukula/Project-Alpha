@@ -49,6 +49,22 @@ export const firestoreShopsService = {
   },
 
   /**
+   * SECURITY: Verify user owns the shop before allowing mutations
+   * Prevents horizontal privilege escalation attacks
+   * @throws Error if user doesn't own the shop
+   */
+  async verifyOwnership(shopId: string, userId: string): Promise<void> {
+    const shop = await this.getById(shopId);
+    if (!shop) {
+      throw new Error('SHOP_NOT_FOUND');
+    }
+    if (shop.ownerId !== userId) {
+      console.error(`[Security] Unauthorized shop access attempt: userId=${userId} tried to access shopId=${shopId} owned by ${shop.ownerId}`);
+      throw new Error('UNAUTHORIZED: You do not own this shop');
+    }
+  },
+
+  /**
    * Create new shop
    */
   async create(shop: Omit<Shop, 'id'>): Promise<string> {
@@ -62,8 +78,16 @@ export const firestoreShopsService = {
 
   /**
    * Update shop
+   * @param id - Shop ID to update
+   * @param updates - Partial shop data to update
+   * @param userId - Optional: If provided, verifies ownership before updating
    */
-  async update(id: string, updates: Partial<Shop>): Promise<void> {
+  async update(id: string, updates: Partial<Shop>, userId?: string): Promise<void> {
+    // SECURITY: If userId is provided, verify ownership first
+    if (userId) {
+      await this.verifyOwnership(id, userId);
+    }
+
     const updateData: any = { ...updates };
 
     // Convert date if present

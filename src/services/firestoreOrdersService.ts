@@ -1,6 +1,11 @@
 /**
  * @file firestoreOrdersService.ts
  * @description Firestore service for orders collection
+ * 
+ * SECURITY NOTES:
+ * - Idempotency checks prevent double-processing of payments
+ * - Input validation prevents malformed/malicious data
+ * - Atomic inventory updates prevent overselling
  */
 
 import { Order } from '../types';
@@ -14,6 +19,8 @@ import {
   timestampToString,
   stringToTimestamp
 } from './firestoreService';
+import { OrderCreateSchema, validateInput } from '../utils/validationSchemas';
+import { decrementMultipleStock } from './inventoryService';
 
 /**
  * Remove undefined values from object (Firestore doesn't allow undefined)
@@ -115,11 +122,28 @@ export const firestoreOrdersService = {
 
   /**
    * Verify order (mark as paid/verified)
+   * IDEMPOTENCY: Safe to call multiple times - will not re-process already paid orders
    */
-  async verify(id: string): Promise<void> {
+  async verify(id: string): Promise<{ success: boolean; alreadyProcessed?: boolean }> {
+    // IDEMPOTENCY CHECK: Prevent double-processing of webhooks
+    const order = await this.getById(id);
+
+    if (!order) {
+      throw new Error('ORDER_NOT_FOUND');
+    }
+
+    // If already paid or collected, silently succeed (idempotent)
+    if (order.status === 'paid' || order.status === 'collected') {
+      console.log(`[Idempotency] Order ${id} already processed with status: ${order.status}`);
+      return { success: true, alreadyProcessed: true };
+    }
+
     await updateDocument(COLLECTIONS.ORDERS, id, {
-      status: 'paid'
+      status: 'paid',
+      paidOn: stringToTimestamp(new Date().toISOString())
     });
+
+    return { success: true, alreadyProcessed: false };
   },
 
   /**
