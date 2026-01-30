@@ -20,7 +20,7 @@ export type ShopTier = 'Select' | 'Verified' | 'Independent' | 'Sandbox';
  * This is the data structure the backend should use for the 'shops' collection.
  */
 export interface Shop {
-  id: number;
+  id: number | string;
   name: string;
   description: string;
   profilePic: string;
@@ -95,6 +95,14 @@ export interface Shop {
     mobileMoneyNumber?: string;
     mobileMoneyProvider?: 'MTN' | 'Airtel' | 'Zamtel';
   };
+
+  // ZRA Tax Compliance
+  /** Taxpayer Identification Number (10 digits) */
+  tpin?: string;
+  /** Tax category: VAT (16%), TOT (4%), or NONE */
+  taxCategory?: 'VAT' | 'TOT' | 'NONE';
+  /** Whether the shop is actively issuing fiscal receipts */
+  isFiscalActive?: boolean;
 }
 
 /**
@@ -102,14 +110,14 @@ export interface Shop {
  * This is the data structure for the 'products' collection.
  */
 export interface Product {
-  id: number;
+  id: number | string;
   name: string;
   price: number;
   image: string;
   category: string;
   stock: number;
   description?: string;
-  shopId?: number;
+  shopId?: number | string;
   type?: 'made_to_order' | 'instant';
   leadTime?: string; // e.g., "48h"
 }
@@ -121,7 +129,7 @@ export interface Product {
 export interface CartItem {
   product: Product;
   quantity: number;
-  shopId: number;
+  shopId: number | string;
   shopName: string;
 }
 
@@ -140,7 +148,7 @@ export interface Order {
   status: 'pending' | 'paid' | 'collected';
   collectionCode: string;
   shopName?: string;
-  shopId?: number;
+  shopId?: number | string;
   message?: string;
   items: any[];
   verificationMethod?: 'scan' | 'manual';
@@ -150,6 +158,12 @@ export interface Order {
   orderType?: 'request' | 'instant';
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   recipient_phone?: string; // Phone number for WhatsApp receipt sharing
+
+  // ZRA Fiscalization Data
+  zraFiscalNumber?: string; // The official receipt number (e.g., "ZRA-1234")
+  zraQrData?: string;       // The raw QR data string
+  taxAmountCents?: number;  // The calculated tax amount
+  taxCategorySnapshot?: 'VAT' | 'TOT' | 'NONE'; // Tax category at time of purchase
 }
 
 /**
@@ -158,7 +172,7 @@ export interface Order {
  */
 export interface Review {
   id: string;
-  shopId: number;
+  shopId: number | string;
   customerId: string;
   customerName: string;
   customerAvatar: string;

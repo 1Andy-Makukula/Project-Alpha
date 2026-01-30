@@ -1,11 +1,12 @@
 
-
 import React, { useState, ChangeEvent, useMemo, useRef, useEffect } from 'react';
 import { useServices } from '../context/ServiceContext';
 import { useAuth } from '../contexts/AuthContext';
 import { firestoreShopsService } from '../services/firestoreShopsService';
 import { shopService } from '../services/shopService';
-import { View, ShopTier } from '../types';
+import { Shop, Product, AppNotification, NotificationType } from '../types';
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
+import { ZAMBIAN_BANKS } from '../data/zambianData';
 import { AnalysisIcon, ProductsIcon, OrdersIcon, QRIcon, SettingsIcon, LogoutIcon, UserIcon, TrendingUpIcon, DollarIcon, ReceiptIcon, DocumentTextIcon, CheckCircleIcon, HistoryIcon, PackageIcon, ExclamationTriangleIcon, CameraIcon, KeyboardIcon, BellIcon, LockClosedIcon, ChevronLeftIcon, ChevronRightIcon, PlusCircleIcon, TrashIcon, CreditCardIcon, ClockIcon, PhotoIcon, HelpCircleIcon } from '../components/icons/NavigationIcons';
 import { StarIcon } from '../components/icons/FeatureIcons';
 import { BrandLogo } from '../components/icons/BrandLogo';
@@ -151,6 +152,11 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
         closeTime: "18:00"
     });
 
+    const [taxProfile, setTaxProfile] = useState({
+        tpin: '',
+        taxCategory: 'NONE'
+    });
+
     // Dynamic shop tier from loaded shop data
     const currentShopTier: ShopTier = currentShop?.tier || 'Sandbox';
 
@@ -215,6 +221,13 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
                         openTime: shop.openTime || '08:00',
                         closeTime: shop.closeTime || '18:00'
                     });
+
+                    // Set Tax Profile
+                    setTaxProfile({
+                        tpin: shop.tpin || '',
+                        taxCategory: shop.taxCategory || 'NONE'
+                    });
+
                     setProfilePicPreview(shop.profilePic || null);
                     setCoverPhotoPreview(shop.coverImg || null);
                 }
@@ -412,6 +425,22 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
         }
     };
 
+    const handleTaxSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!currentShop?.id) return;
+
+        try {
+            await firestoreShopsService.update(String(currentShop.id), {
+                tpin: taxProfile.tpin,
+                taxCategory: taxProfile.taxCategory
+            });
+            showToast("Tax settings saved!", 'success');
+        } catch (error) {
+            console.error("Error saving tax settings:", error);
+            showToast("Failed to save tax settings", 'error');
+        }
+    };
+
     const handleAddPayoutMethod = (method: Omit<ShopPayoutMethod, 'id'>) => {
         setPayoutMethods(prev => [...prev, { ...method, id: Date.now() }]);
         setIsPayoutModalOpen(false);
@@ -449,7 +478,7 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
         setPasswordFields(prev => ({ ...prev, [name]: value }));
     };
 
-    const handlePasswordSubmit = (e: React.FormEvent) => {
+    const handlePasswordSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (passwordFields.newPassword !== passwordFields.confirmPassword) {
             showToast("New passwords do not match.", 'error');
@@ -459,8 +488,29 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
             showToast("New password must be at least 8 characters.", 'error');
             return;
         }
-        showToast("Password changed successfully!", 'success');
-        setPasswordFields({ currentPassword: '', newPassword: '', confirmPassword: '' });
+
+        if (!currentUser || !currentUser.email) {
+            showToast("User not authenticated properly.", 'error');
+            return;
+        }
+
+        try {
+            const credential = EmailAuthProvider.credential(currentUser.email, passwordFields.currentPassword);
+            await reauthenticateWithCredential(currentUser, credential);
+            await updatePassword(currentUser, passwordFields.newPassword);
+
+            showToast("Password changed successfully!", 'success');
+            setPasswordFields({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        } catch (error: any) {
+            console.error("Password change error:", error);
+            if (error.code === 'auth/wrong-password') {
+                showToast("Incorrect current password.", 'error');
+            } else if (error.code === 'auth/requires-recent-login') {
+                showToast("Please log out and log back in to change your password.", 'error');
+            } else {
+                showToast("Failed to change password. " + error.message, 'error');
+            }
+        }
     };
 
     const toggleNotification = (key: keyof typeof notifPreferences) => {
@@ -686,18 +736,26 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
         switch (activeMenu) {
             case 'analysis':
                 // ... [Analysis Data] ...
-                const analysisData = { revenue: 32500.75, totalOrders: 82, kithlyTakeRate: 0.05, processingFeeRate: 0.029, growthRate: 0.15 };
-                const totalFees = (analysisData.revenue * analysisData.kithlyTakeRate) + (analysisData.revenue * analysisData.processingFeeRate);
+                // Derived real data from shopAnalytics
+                const totalFees = (shopAnalytics.totalRevenue * 0.05) + (shopAnalytics.totalRevenue * 0.029);
 
-                const salesData = [4500, 6000, 5500, 8000, 7000, 9000, 12500];
-                const maxSales = Math.max(...salesData);
-                const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                const topProducts = [
-                    { name: "Fresh Produce Box", sales: 120, revenue: 78000, percentage: 85 },
-                    { name: "Imported Rice (5kg)", sales: 85, revenue: 34000, percentage: 60 },
-                    { name: "Free-Range Eggs (12)", sales: 60, revenue: 9000, percentage: 40 },
-                    { name: "Artisanal Bread Loaf", sales: 45, revenue: 5850, percentage: 30 },
-                ];
+                // Prepare data for the manual chart (last 7 days)
+                // dailyRevenue is returned as { date, revenue } from oldest to newest (by loop logic in service, but let's verify)
+                // Service loop: i=6 down to 0. date = today - i. So likely oldest first.
+                const salesData = shopAnalytics.dailyRevenue.map(d => d.revenue);
+                const days = shopAnalytics.dailyRevenue.map(d => d.date);
+                const maxSales = Math.max(...salesData, 1); // Avoid div by zero
+
+                const maxProductRevenue = shopAnalytics.topSellingProducts.length > 0
+                    ? shopAnalytics.topSellingProducts[0].revenue
+                    : 1;
+
+                const topProducts = shopAnalytics.topSellingProducts.map(p => ({
+                    name: p.product.name,
+                    sales: p.quantitySold,
+                    revenue: p.revenue,
+                    percentage: (p.revenue / maxProductRevenue) * 100
+                }));
 
                 return (
                     <div className="animate-fade-in space-y-8">
@@ -811,8 +869,8 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
                                         ZMK <AnimatedNumber value={totalFees} formatter={(v) => v.toFixed(2)} />
                                     </p>
                                     <div className="text-xs text-gray-500 mt-2 space-y-1">
-                                        <div className="flex justify-between"><span>Kithly (5%):</span> <span>ZMK {(analysisData.revenue * 0.05).toFixed(2)}</span></div>
-                                        <div className="flex justify-between"><span>Processing (2.9%):</span> <span>ZMK {(analysisData.revenue * 0.029).toFixed(2)}</span></div>
+                                        <div className="flex justify-between"><span>Kithly (5%):</span> <span>ZMK {(shopAnalytics.totalRevenue * 0.05).toFixed(2)}</span></div>
+                                        <div className="flex justify-between"><span>Processing (2.9%):</span> <span>ZMK {(shopAnalytics.totalRevenue * 0.029).toFixed(2)}</span></div>
                                     </div>
                                 </div>
 
@@ -1304,6 +1362,43 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
                                             </div>
                                         ))}
                                     </div>
+
+                                    {/* Tax Compliance Section */}
+                                    <div className="mt-8 border-t pt-8">
+                                        <h3 className="text-xl font-semibold text-gray-800 mb-2">Tax Compliance</h3>
+                                        <p className="text-sm text-gray-500 mb-6">Manage your ZRA tax registration details.</p>
+
+                                        <form onSubmit={handleTaxSubmit} className="bg-gray-50 p-6 rounded-xl border border-gray-100">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">TPIN</label>
+                                                    <input
+                                                        type="text"
+                                                        value={taxProfile.tpin}
+                                                        onChange={(e) => setTaxProfile({ ...taxProfile, tpin: e.target.value })}
+                                                        placeholder="10-digit TPIN"
+                                                        maxLength={10}
+                                                        className="block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-kithly-accent focus:border-kithly-accent"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Tax Category</label>
+                                                    <select
+                                                        value={taxProfile.taxCategory}
+                                                        onChange={(e) => setTaxProfile({ ...taxProfile, taxCategory: e.target.value })}
+                                                        className="block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-kithly-accent focus:border-kithly-accent"
+                                                    >
+                                                        <option value="NONE">Unregistered (None)</option>
+                                                        <option value="TOT">Turnover Tax (4%)</option>
+                                                        <option value="VAT">VAT Registered (16%)</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <Button type="submit" variant="primary">Save Tax Settings</Button>
+                                            </div>
+                                        </form>
+                                    </div>
                                 </div>
                             )}
 
@@ -1379,6 +1474,10 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
                                 <div>
                                     <h3 className="text-lg font-semibold text-gray-800 mb-4">Password Management</h3>
                                     <form onSubmit={handlePasswordSubmit} className="space-y-4 max-w-md">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Current Password</label>
+                                            <input type="password" value={(passwordFields as any).currentPassword || ''} onChange={handlePasswordChange} name="currentPassword" className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-kithly-accent focus:border-kithly-accent sm:text-sm" required />
+                                        </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">New Password</label>
                                             <input type="password" value={passwordFields.newPassword} onChange={handlePasswordChange} name="newPassword" className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-kithly-accent focus:border-kithly-accent sm:text-sm" required minLength={8} />
@@ -1744,7 +1843,18 @@ const AddPayoutModal: React.FC<{ onSave: (method: any) => void, onClose: () => v
                     <form onSubmit={handleSubmit} className="space-y-3">
                         {type === 'bank' && (
                             <>
-                                <input required placeholder="Bank Name" className="w-full p-2 bg-gray-50 rounded border border-gray-200" value={formData.bankName} onChange={e => setFormData({ ...formData, bankName: e.target.value, provider: 'bank' })} />
+                                <select
+                                    required
+                                    className="w-full p-2 bg-gray-50 rounded border border-gray-200"
+                                    value={formData.bankName}
+                                    onChange={e => setFormData({ ...formData, bankName: e.target.value, provider: 'bank' })}
+                                >
+                                    {ZAMBIAN_BANKS.map(bank => (
+                                        <option key={bank.value} value={bank.value}>{bank.label}</option>
+                                    ))}
+                                </select>
+                                <input required placeholder="Branch Code" className="w-full p-2 bg-gray-50 rounded border border-gray-200" value={(formData as any).branchCode || ''} onChange={e => setFormData({ ...formData, branchCode: e.target.value } as any)} />
+                                <input placeholder="Swift Code (Optional)" className="w-full p-2 bg-gray-50 rounded border border-gray-200" value={(formData as any).swiftCode || ''} onChange={e => setFormData({ ...formData, swiftCode: e.target.value } as any)} />
                                 <input required placeholder="Account Number" className="w-full p-2 bg-gray-50 rounded border border-gray-200" value={formData.accountNumber} onChange={e => setFormData({ ...formData, accountNumber: e.target.value })} />
                             </>
                         )}

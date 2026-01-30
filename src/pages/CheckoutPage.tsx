@@ -251,8 +251,11 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ setView, cart, onCheckout, 
                                         <input type="email" id="email" name="email" value={recipient.email} onChange={handleInputChange} required className="mt-1 block w-full bg-kithly-light border-transparent rounded-lg py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-kithly-accent" />
                                     </div>
                                     <div>
-                                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Phone Number</label>
+                                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                                            Phone Number <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-bold">WhatsApp Enabled 📱</span>
+                                        </label>
                                         <input type="tel" id="phone" name="phone" placeholder="+260..." value={recipient.phone} onChange={handleInputChange} required className="mt-1 block w-full bg-kithly-light border-transparent rounded-lg py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-kithly-accent" />
+                                        <p className="text-xs text-gray-500 mt-1">We'll send your digital receipt and pickup code here.</p>
                                     </div>
                                 </div>
 

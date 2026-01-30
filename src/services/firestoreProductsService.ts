@@ -14,14 +14,12 @@ import {
   queryDocuments
 } from './firestoreService';
 
-/**
- * Convert Firestore product data to Product type
- */
+// Convert Firestore product data to Product type
 function convertProductData(data: any): Product {
   return {
     ...data,
-    id: parseInt(data.id) || data.id,
-    shopId: data.shopId ? parseInt(data.shopId) : undefined
+    id: data.id,
+    shopId: data.shopId
   };
 }
 
@@ -32,7 +30,7 @@ export const firestoreProductsService = {
   /**
    * Get all products, optionally filtered by shop
    */
-  async getAll(shopId?: number): Promise<Product[]> {
+  async getAll(shopId?: number | string): Promise<Product[]> {
     if (shopId) {
       return queryDocuments<any>(COLLECTIONS.PRODUCTS, 'shopId', '==', shopId)
         .then(products => products.map(convertProductData));

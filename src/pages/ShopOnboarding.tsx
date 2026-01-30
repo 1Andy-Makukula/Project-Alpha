@@ -9,36 +9,8 @@ import { ToastType } from '../components/Toast';
 import { useAuth } from '../contexts/AuthContext';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../services/firebase';
-
-// Zambian Provinces
-const ZAMBIAN_PROVINCES = [
-  { value: '', label: 'Select Province' },
-  { value: 'Central', label: 'Central Province' },
-  { value: 'Copperbelt', label: 'Copperbelt Province' },
-  { value: 'Eastern', label: 'Eastern Province' },
-  { value: 'Luapula', label: 'Luapula Province' },
-  { value: 'Lusaka', label: 'Lusaka Province' },
-  { value: 'Muchinga', label: 'Muchinga Province' },
-  { value: 'Northern', label: 'Northern Province' },
-  { value: 'North-Western', label: 'North-Western Province' },
-  { value: 'Southern', label: 'Southern Province' },
-  { value: 'Western', label: 'Western Province' },
-];
-
-// Zambian Banks
-const ZAMBIAN_BANKS = [
-  { value: '', label: 'Select Bank' },
-  { value: 'Zanaco', label: 'Zanaco' },
-  { value: 'Stanbic', label: 'Stanbic Bank' },
-  { value: 'FNB', label: 'First National Bank (FNB)' },
-  { value: 'Absa', label: 'Absa Bank Zambia' },
-  { value: 'Atlas Mara', label: 'Atlas Mara Bank' },
-  { value: 'Indo Zambia', label: 'Indo Zambia Bank' },
-  { value: 'Investrust', label: 'Investrust Bank' },
-  { value: 'Access', label: 'Access Bank' },
-  { value: 'UBA', label: 'United Bank for Africa' },
-  { value: 'Other', label: 'Other' },
-];
+import { firestoreProductsService } from '../services/firestoreProductsService';
+import { ZAMBIAN_BANKS, ZAMBIAN_PROVINCES } from '../data/zambianData';
 
 interface ShopOnboardingProps {
   setView: (view: View) => void;
@@ -55,6 +27,7 @@ const ShopOnboarding: React.FC<ShopOnboardingProps> = ({ setView, shopId: propSh
   const [shop, setShop] = useState<Shop | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadLoading, setUploadLoading] = useState<string | null>(null); // 'profile' | 'cover' | null
 
   // Form data for each step
   const [step1Data, setStep1Data] = useState({
@@ -80,7 +53,14 @@ const ShopOnboarding: React.FC<ShopOnboardingProps> = ({ setView, shopId: propSh
     bankName: '',
     accountNumber: '',
     mobileMoneyNumber: '',
+    tpin: '',           // New: Taxpayer ID
+    taxCategory: 'NONE' // New: Default to None
   });
+
+  // Inline Product State
+  const [newProduct, setNewProduct] = useState({ name: '', price: '' });
+  const [addedProducts, setAddedProducts] = useState<any[]>([]);
+  const [addingProduct, setAddingProduct] = useState(false);
 
   // Load shop data
   useEffect(() => {
@@ -214,8 +194,17 @@ const ShopOnboarding: React.FC<ShopOnboardingProps> = ({ setView, shopId: propSh
           showToast('Please provide at least one payment method', 'error');
           return;
         }
-        // Save payment info (in production, this would be encrypted)
-        dataToSave = { paymentInfo: step5Data };
+        // Save payment info AND Tax Info
+        dataToSave = {
+          paymentInfo: {
+            bankName: step5Data.bankName,
+            accountNumber: step5Data.accountNumber,
+            mobileMoneyNumber: step5Data.mobileMoneyNumber,
+          },
+          // Save directly to shop root
+          tpin: (step5Data as any).tpin || '',
+          taxCategory: (step5Data as any).taxCategory || 'NONE',
+        };
         break;
     }
 
@@ -253,6 +242,7 @@ const ShopOnboarding: React.FC<ShopOnboardingProps> = ({ setView, shopId: propSh
   const handleImageUpload = async (file: File, type: 'profile' | 'cover') => {
     if (!file || !shopId) return;
 
+    setUploadLoading(type);
     try {
       const storageRef = ref(storage, `shops/${shopId}/${type}_${Date.now()}`);
       const snapshot = await uploadBytes(storageRef, file);
@@ -270,6 +260,37 @@ const ShopOnboarding: React.FC<ShopOnboardingProps> = ({ setView, shopId: propSh
       console.error('Upload failed:', error);
       showToast('Failed to upload image', 'error');
       return null;
+    } finally {
+      setUploadLoading(null);
+      setUploadLoading(null);
+    }
+  };
+
+  // Inline Product Handler
+  const handleAddProduct = async () => {
+    if (!newProduct.name || !newProduct.price) return;
+    if (!shopId) return;
+
+    setAddingProduct(true);
+    try {
+      await firestoreProductsService.create({
+        shopId,
+        name: newProduct.name,
+        price: parseFloat(newProduct.price),
+        category: step1Data.category || 'General',
+        stock: 10,
+        image: '', // No image for quick add
+        description: 'Added during setup'
+      });
+
+      setAddedProducts([...addedProducts, newProduct]);
+      setNewProduct({ name: '', price: '' });
+      showToast("Product added!", "success");
+    } catch (e) {
+      console.error(e);
+      showToast("Failed to add product", "error");
+    } finally {
+      setAddingProduct(false);
     }
   };
 
@@ -296,6 +317,19 @@ const ShopOnboarding: React.FC<ShopOnboardingProps> = ({ setView, shopId: propSh
     // Check payment info
     if (!shop?.paymentInfo?.accountNumber && !shop?.paymentInfo?.mobileMoneyNumber) {
       missing.push('Payment Method (Bank or Mobile Money)');
+    }
+
+    // New Thresholds
+    if (!shop?.coverImg && !step3Data.coverImg) {
+      missing.push('Cover Image');
+    }
+
+    // Check products count (need to fetch or track)
+    // Since we just added products in step 4 or loaded them, we might trust the user flow or check firestore
+    // For now, let's rely on the shop setupProgress if we trust it, or just warn
+    const productCount = addedProducts.length + (shop?.setupProgress?.step4_products ? 1 : 0);
+    if (productCount === 0) {
+      missing.push('At least 1 Product');
     }
 
     if (missing.length > 0) {
@@ -573,7 +607,12 @@ const ShopOnboarding: React.FC<ShopOnboardingProps> = ({ setView, shopId: propSh
                         Profile Picture / Logo
                       </label>
                       <div className="relative">
-                        {step3Data.profilePic ? (
+                        {uploadLoading === 'profile' ? (
+                          <div className="w-full h-40 rounded-xl border-2 border-dashed border-kithly-primary bg-gray-50 flex flex-col items-center justify-center animate-pulse">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kithly-primary mb-2"></div>
+                            <p className="text-sm text-kithly-primary font-medium">Uploading...</p>
+                          </div>
+                        ) : step3Data.profilePic ? (
                           <div className="relative">
                             <img
                               src={step3Data.profilePic}
@@ -616,7 +655,12 @@ const ShopOnboarding: React.FC<ShopOnboardingProps> = ({ setView, shopId: propSh
                         Cover Image
                       </label>
                       <div className="relative">
-                        {step3Data.coverImg ? (
+                        {uploadLoading === 'cover' ? (
+                          <div className="w-full h-40 rounded-xl border-2 border-dashed border-kithly-primary bg-gray-50 flex flex-col items-center justify-center animate-pulse">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kithly-primary mb-2"></div>
+                            <p className="text-sm text-kithly-primary font-medium">Uploading...</p>
+                          </div>
+                        ) : step3Data.coverImg ? (
                           <div className="relative">
                             <img
                               src={step3Data.coverImg}
@@ -664,26 +708,84 @@ const ShopOnboarding: React.FC<ShopOnboardingProps> = ({ setView, shopId: propSh
               <h2 className="text-3xl font-bold text-kithly-dark mb-2">Add your products</h2>
               <p className="text-gray-600 mb-8">Add at least one product to continue</p>
 
-              <div className="text-center py-12">
-                <svg className="w-24 h-24 text-kithly-primary mx-auto mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-                <h3 className="text-xl font-bold text-gray-800 mb-2">Ready to add products?</h3>
-                <p className="text-gray-600 mb-6">
-                  You'll be taken to your dashboard where you can add products easily
-                </p>
-                <Button
-                  variant="primary"
-                  onClick={() => {
-                    // Mark step as complete and redirect to product page
-                    saveStep(4, {});
-                    setView('shopPortal');
-                    showToast('Add products in the Products tab', 'info');
-                  }}
-                  className="px-8 py-3"
-                >
-                  Go to Products
-                </Button>
+              <div className="space-y-6">
+                {/* Product Form */}
+                <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
+                  <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <span className="bg-kithly-primary text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
+                    Add First Product
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
+                      <input
+                        type="text"
+                        value={newProduct.name}
+                        onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kithly-primary"
+                        placeholder="e.g. Village Chicken"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Price (ZMK)</label>
+                      <input
+                        type="number"
+                        value={newProduct.price}
+                        onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kithly-primary"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex justify-end">
+                    <Button
+                      variant="secondary"
+                      onClick={handleAddProduct}
+                      disabled={!newProduct.name || !newProduct.price || addingProduct}
+                      className="w-full md:w-auto"
+                    >
+                      {addingProduct ? 'Adding...' : 'Add Product'}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Products List */}
+                {addedProducts.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Added Products</h4>
+                    {addedProducts.map((p, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-3 bg-white border rounded-lg shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xl">📦</div>
+                          <div>
+                            <div className="font-bold text-gray-800">{p.name}</div>
+                            <div className="text-sm text-gray-500">ZMK {parseFloat(p.price).toFixed(2)}</div>
+                          </div>
+                        </div>
+                        <div className="text-green-600 text-sm font-medium">Ready</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="pt-6 border-t border-gray-100 flex justify-end">
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      if (addedProducts.length === 0) {
+                        showToast("Please add at least one product", "error");
+                        return;
+                      }
+                      saveStep(4, { productsAdded: true });
+                      handleNext();
+                    }}
+                    className="px-8 py-3"
+                  >
+                    Continue to Payment
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -718,38 +820,129 @@ const ShopOnboarding: React.FC<ShopOnboardingProps> = ({ setView, shopId: propSh
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Bank Name
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={step5Data.bankName}
                     onChange={(e) => setStep5Data({ ...step5Data, bankName: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-kithly-primary focus:outline-none transition-colors"
-                    placeholder="e.g., Zanaco, Stanbic, FNB"
-                  />
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-kithly-primary focus:outline-none transition-colors bg-white"
+                  >
+                    {ZAMBIAN_BANKS.map(bank => (
+                      <option key={bank.value} value={bank.value}>
+                        {bank.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-200"></div>
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-4 bg-white text-gray-500">OR</span>
-                  </div>
-                </div>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Mobile Money Number
-                  </label>
-                  <input
-                    type="tel"
-                    value={step5Data.mobileMoneyNumber}
-                    onChange={(e) => setStep5Data({ ...step5Data, mobileMoneyNumber: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-kithly-primary focus:outline-none transition-colors"
-                    placeholder="+260 XXX XXX XXX"
-                  />
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-4 bg-white text-gray-500">OR</span>
                 </div>
               </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Mobile Money Number
+                </label>
+                <input
+                  type="tel"
+                  value={step5Data.mobileMoneyNumber}
+                  onChange={(e) => setStep5Data({ ...step5Data, mobileMoneyNumber: e.target.value })}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-kithly-primary focus:outline-none transition-colors"
+                  placeholder="+260 XXX XXX XXX"
+                />
+              </div>
+
+              {/* Tax Compliance Section - LEVEL 2 SMART TAX */}
+              <div className="border-t border-gray-200 pt-6 mt-8">
+                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <span className="text-xl">🏛️</span> Tax Compliance
+                </h3>
+
+                <div className="bg-gray-50 p-4 rounded-xl mb-6 text-sm text-gray-600">
+                  <p>KithLy automates your ZRA limits. Select your registration status so we calculate the correct tax (VAT vs Turnover Tax).</p>
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      TPIN (Taxpayer Identification Number)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={10}
+                      value={(step5Data as any).tpin || ''}
+                      onChange={(e) => setStep5Data({ ...step5Data, tpin: e.target.value } as any)}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-kithly-primary focus:outline-none transition-colors font-mono"
+                      placeholder="0000000000"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Tax Category
+                    </label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <label className={`
+                          relative border-2 rounded-xl p-4 cursor-pointer transition-all hover:bg-white
+                          ${(step5Data as any).taxCategory === 'NONE' ? 'border-kithly-primary bg-orange-50' : 'border-gray-200 bg-white'}
+                        `}>
+                        <input
+                          type="radio"
+                          name="taxCategory"
+                          value="NONE"
+                          checked={(step5Data as any).taxCategory === 'NONE'}
+                          onChange={(e) => setStep5Data({ ...step5Data, taxCategory: e.target.value } as any)}
+                          className="absolute opacity-0"
+                        />
+                        <div className="font-bold text-gray-900">Unregistered</div>
+                        <div className="text-xs text-gray-500 mt-1">For individuals & micro-sellers (No Tax collected)</div>
+                      </label>
+
+                      <label className={`
+                          relative border-2 rounded-xl p-4 cursor-pointer transition-all hover:bg-white
+                          ${(step5Data as any).taxCategory === 'TOT' ? 'border-kithly-primary bg-orange-50' : 'border-gray-200 bg-white'}
+                        `}>
+                        <input
+                          type="radio"
+                          name="taxCategory"
+                          value="TOT"
+                          checked={(step5Data as any).taxCategory === 'TOT'}
+                          onChange={(e) => setStep5Data({ ...step5Data, taxCategory: e.target.value } as any)}
+                          className="absolute opacity-0"
+                        />
+                        <div className="font-bold text-gray-900">Turnover Tax</div>
+                        <div className="text-xs text-green-600 mt-1 font-bold">4% Rate</div>
+                        <div className="text-xs text-gray-500">For SMEs (Turnover &lt; K800k)</div>
+                      </label>
+
+                      <label className={`
+                          relative border-2 rounded-xl p-4 cursor-pointer transition-all hover:bg-white
+                          ${(step5Data as any).taxCategory === 'VAT' ? 'border-kithly-primary bg-orange-50' : 'border-gray-200 bg-white'}
+                        `}>
+                        <input
+                          type="radio"
+                          name="taxCategory"
+                          value="VAT"
+                          checked={(step5Data as any).taxCategory === 'VAT'}
+                          onChange={(e) => setStep5Data({ ...step5Data, taxCategory: e.target.value } as any)}
+                          className="absolute opacity-0"
+                        />
+                        <div className="font-bold text-gray-900">VAT Registered</div>
+                        <div className="text-xs text-red-600 mt-1 font-bold">16% Rate</div>
+                        <div className="text-xs text-gray-500">For large retailers</div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
             </div>
+
           )}
 
           {/* Step 6: Review & Go Live */}
@@ -869,8 +1062,8 @@ const ShopOnboarding: React.FC<ShopOnboardingProps> = ({ setView, shopId: propSh
             </div>
           )}
         </div>
-      </main>
-    </div>
+      </main >
+    </div >
   );
 };
 

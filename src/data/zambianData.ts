@@ -1,0 +1,30 @@
+export const ZAMBIAN_PROVINCES = [
+  { value: '', label: 'Select Province' },
+  { value: 'Central', label: 'Central Province' },
+  { value: 'Copperbelt', label: 'Copperbelt Province' },
+  { value: 'Eastern', label: 'Eastern Province' },
+  { value: 'Luapula', label: 'Luapula Province' },
+  { value: 'Lusaka', label: 'Lusaka Province' },
+  { value: 'Muchinga', label: 'Muchinga Province' },
+  { value: 'Northern', label: 'Northern Province' },
+  { value: 'North-Western', label: 'North-Western Province' },
+  { value: 'Southern', label: 'Southern Province' },
+  { value: 'Western', label: 'Western Province' },
+];
+
+export const ZAMBIAN_BANKS = [
+  { value: '', label: 'Select Bank' },
+  { value: 'Zanaco', label: 'Zanaco' },
+  { value: 'Stanbic', label: 'Stanbic Bank' },
+  { value: 'FNB', label: 'First National Bank (FNB)' },
+  { value: 'Absa', label: 'Absa Bank Zambia' },
+  { value: 'Atlas Mara', label: 'Atlas Mara Bank' },
+  { value: 'Indo Zambia', label: 'Indo Zambia Bank' },
+  { value: 'Investrust', label: 'Investrust Bank' },
+  { value: 'Access', label: 'Access Bank' },
+  { value: 'UBA', label: 'United Bank for Africa' },
+  { value: 'Ecobank', label: 'Ecobank Zambia' },
+  { value: 'Cavmont', label: 'Cavmont Bank' },
+  { value: 'First Capital', label: 'First Capital Bank' },
+  { value: 'Other', label: 'Other' },
+];

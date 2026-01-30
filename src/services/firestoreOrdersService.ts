@@ -42,7 +42,12 @@ function convertOrderData(data: any): Order {
   return {
     ...data,
     paidOn: data.paidOn?.toDate ? timestampToString(data.paidOn) : data.paidOn,
-    collectedOn: data.collectedOn?.toDate ? timestampToString(data.collectedOn) : data.collectedOn
+    collectedOn: data.collectedOn?.toDate ? timestampToString(data.collectedOn) : data.collectedOn,
+    // Ensure nested fields or strict types are valid
+    zraFiscalNumber: data.zraFiscalNumber,
+    zraQrData: data.zraQrData,
+    taxAmountCents: data.taxAmountCents,
+    taxCategorySnapshot: data.taxCategorySnapshot
   };
 }
 
