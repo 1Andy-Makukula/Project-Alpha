@@ -5,15 +5,17 @@ import { Shop } from '../types';
  */
 
 /**
- * Check if all setup steps are complete
+ * Check if all setup steps are complete (7 steps: 0-6)
  */
 export const isSetupComplete = (shop: Shop): boolean => {
   return (
+    shop.setupProgress.step0_businessType &&
     shop.setupProgress.step1_basicInfo &&
     shop.setupProgress.step2_location &&
     shop.setupProgress.step3_branding &&
-    shop.setupProgress.step4_products &&
-    shop.setupProgress.step5_payment
+    shop.setupProgress.step4_compliance &&
+    shop.setupProgress.step5_products &&
+    shop.setupProgress.step6_payment
   );
 };
 
@@ -22,7 +24,6 @@ export const isSetupComplete = (shop: Shop): boolean => {
  */
 export const canGoLive = (shop: Shop, hasProducts: boolean = false): boolean => {
   return (
-    shop.emailVerified &&
     shop.termsAccepted &&
     isSetupComplete(shop) &&
     hasProducts
@@ -42,12 +43,14 @@ export const getSetupProgress = (shop: Shop): number => {
  * Get next incomplete step
  */
 export const getNextStep = (shop: Shop): number => {
+  if (!shop.setupProgress.step0_businessType) return 0;
   if (!shop.setupProgress.step1_basicInfo) return 1;
   if (!shop.setupProgress.step2_location) return 2;
   if (!shop.setupProgress.step3_branding) return 3;
-  if (!shop.setupProgress.step4_products) return 4;
-  if (!shop.setupProgress.step5_payment) return 5;
-  return 6; // Review step
+  if (!shop.setupProgress.step4_compliance) return 4;
+  if (!shop.setupProgress.step5_products) return 5;
+  if (!shop.setupProgress.step6_payment) return 6;
+  return 7; // All complete
 };
 
 /**
@@ -70,6 +73,7 @@ export const validateShopName = (name: string): { valid: boolean; error?: string
  * Validate opening hours format
  */
 export const validateOpeningHours = (hours: string): { valid: boolean; error?: string } => {
+  if (!hours) return { valid: true }; // Optional field
   const pattern = /^\d{2}:\d{2}\s*-\s*\d{2}:\d{2}$/;
   if (!pattern.test(hours)) {
     return { valid: false, error: 'Invalid format. Use HH:MM - HH:MM (e.g., 08:00 - 18:00)' };

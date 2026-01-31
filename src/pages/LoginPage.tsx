@@ -6,6 +6,7 @@ import { BrandLogo } from '../components/icons/BrandLogo';
 import AnimatedBackButton from '../components/AnimatedBackButton';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
+import { firestoreShopsService } from '../services/firestoreShopsService';
 
 interface LoginProps {
   setView: (view: View) => void;
@@ -14,15 +15,26 @@ interface LoginProps {
 const LoginPage: React.FC<LoginProps> = ({ setView }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, loginWithGoogle, userProfile } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
-  // Redirect based on user role
-  const redirectBasedOnRole = () => {
-    if (userProfile?.role === 'shop') {
+  // Redirect based on user role - fetch fresh profile data
+  const redirectBasedOnRole = async (userId: string, role?: string) => {
+    if (role === 'shop') {
+      // Check if shop has completed onboarding
+      try {
+        const shops = await firestoreShopsService.getByOwner(userId);
+        const shop = shops[0];
+        if (shop && shop.status === 'live') {
+          setView('shopPortal');
+        } else {
+          setView('shopOnboarding');
+        }
+      } catch {
+        setView('shopOnboarding');
+      }
+    } else if (role === 'admin') {
       setView('shopPortal');
-    } else if (userProfile?.role === 'admin') {
-      setView('shopPortal'); // Admin uses shop portal for now
     } else {
       setView('customerDashboard');
     }
@@ -32,10 +44,14 @@ const LoginPage: React.FC<LoginProps> = ({ setView }) => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await login(email, password);
+      const user = await login(email, password);
       toast.success('Welcome back!');
-      // Brief delay to allow userProfile to update
-      setTimeout(() => redirectBasedOnRole(), 100);
+      // Fetch user doc to get role
+      const { getDoc, doc } = await import('firebase/firestore');
+      const { db } = await import('../services/firebase');
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const role = userDoc.exists() ? userDoc.data()?.role : 'customer';
+      await redirectBasedOnRole(user.uid, role);
     } catch (error: any) {
       if ((error as any).code === 'auth/user-not-found') {
         toast.error('No account found with this email');
@@ -54,9 +70,13 @@ const LoginPage: React.FC<LoginProps> = ({ setView }) => {
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     try {
-      await loginWithGoogle();
+      const user = await loginWithGoogle();
       toast.success('Welcome back!');
-      setTimeout(() => redirectBasedOnRole(), 100);
+      const { getDoc, doc } = await import('firebase/firestore');
+      const { db } = await import('../services/firebase');
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const role = userDoc.exists() ? userDoc.data()?.role : 'customer';
+      await redirectBasedOnRole(user.uid, role);
     } catch (error: any) {
       toast.error('Google login failed: ' + error.message);
     } finally {

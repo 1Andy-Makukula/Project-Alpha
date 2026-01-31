@@ -1,15 +1,7 @@
 
 import React from 'react';
 import { PencilIcon, TrashIcon } from './icons/NavigationIcons';
-
-interface Product {
-    id: number;
-    name: string;
-    price: number;
-    category: string;
-    image: string;
-    stock: number;
-}
+import { Product } from '../types';
 
 interface ProductManagementCardProps {
     product: Product;

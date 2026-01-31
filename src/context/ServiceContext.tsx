@@ -56,11 +56,11 @@ interface ServiceContextType {
     products: {
       /**
        * @desc Retrieves products, optionally filtered by shop.
-       * @param {number} [shopId] - Optional ID of the shop to filter by.
+       * @param {number | string} [shopId] - Optional ID of the shop to filter by.
        * @returns {Promise<Product[]>} An array of products.
        * @todo Implement Firestore query with a `where('shopId', '==', shopId)` filter.
        */
-      getAll: (shopId?: number) => Promise<Product[]>;
+      getAll: (shopId?: number | string) => Promise<Product[]>;
       /**
        * @desc Adds a new product to the database.
        * @param {Product} product - The product to add.
@@ -70,11 +70,11 @@ interface ServiceContextType {
       add: (product: Product) => Promise<Product>;
       /**
        * @desc Deletes a product from the database.
-       * @param {number} productId - The ID of the product to delete.
+       * @param {number | string} productId - The ID of the product to delete.
        * @returns {Promise<void>}
        * @todo Replace with `firestore.collection('products').doc(productId).delete()`.
        */
-      delete: (productId: number) => Promise<void>;
+      delete: (productId: number | string) => Promise<void>;
     };
   };
   /**

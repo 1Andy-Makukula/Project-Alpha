@@ -39,22 +39,28 @@ export interface Shop {
   reviewCount?: number;
   totalReviews?: number;
 
+  // Business Type (Step 0)
+  /** Whether this is a registered business or independent seller */
+  businessType?: 'registered_business' | 'independent_seller';
+
   // Status & Lifecycle
   status: 'draft' | 'live' | 'paused' | 'archived';
   emailVerified: boolean;
   termsAccepted: boolean;
   termsAcceptedDate?: string;
 
-  // Setup Progress
+  // Setup Progress (7 steps for onboarding)
   setupProgress: {
+    step0_businessType: boolean;
     step1_basicInfo: boolean;
     step2_location: boolean;
     step3_branding: boolean;
-    step4_products: boolean;
-    step5_payment: boolean;
+    step4_compliance: boolean;
+    step5_products: boolean;
+    step6_payment: boolean;
   };
   setupCompleted: boolean;
-  currentSetupStep: number; // 1-5, for resume
+  currentSetupStep: number; // 0-6, for resume
 
   // Timestamps
   createdAt: string;
@@ -72,6 +78,20 @@ export interface Shop {
   businessVerified: boolean;
   taxId?: string;
   businessLicense?: string; // URL to uploaded document
+
+  // Compliance Documents (Required for onboarding)
+  complianceDocuments?: {
+    /** NRC PDF URL (required for all sellers) */
+    nrcUrl?: string;
+    /** PACRA certificate URL (required for registered businesses) */
+    pacraUrl?: string;
+    /** Whether NRC has been verified by admin */
+    nrcVerified?: boolean;
+    /** Whether PACRA has been verified by admin */
+    pacraVerified?: boolean;
+    /** When documents were submitted */
+    submittedAt?: string;
+  };
 
   // Geolocation fields
   coordinates?: {
@@ -103,6 +123,12 @@ export interface Shop {
   taxCategory?: 'VAT' | 'TOT' | 'NONE';
   /** Whether the shop is actively issuing fiscal receipts */
   isFiscalActive?: boolean;
+
+  // Shop Control Toggles
+  /** Temporarily disable the entire shop (not visible to customers) */
+  isDisabled?: boolean;
+  /** Temporarily disable all products (shop visible but no products) */
+  productsDisabled?: boolean;
 }
 
 /**
@@ -120,6 +146,15 @@ export interface Product {
   shopId?: number | string;
   type?: 'made_to_order' | 'instant';
   leadTime?: string; // e.g., "48h"
+
+  // Extended product details (from user spec)
+  /** Technical specifications: size, weight, materials, etc. */
+  specifications?: string;
+  /** Product variations (sizes, colours, etc.) */
+  variations?: Array<{
+    type: string;      // e.g., "Size", "Color"
+    options: string[]; // e.g., ["S", "M", "L"] or ["Red", "Blue"]
+  }>;
 }
 
 /**
@@ -145,7 +180,7 @@ export interface Order {
   collectedOn: string | null;
   total: number;
   itemCount: number;
-  status: 'pending' | 'paid' | 'collected';
+  status: 'pending' | 'paid' | 'collected' | 'cancelled';
   collectionCode: string;
   shopName?: string;
   shopId?: number | string;

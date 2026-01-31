@@ -4,7 +4,7 @@ import { useServices } from '../context/ServiceContext';
 import { useAuth } from '../contexts/AuthContext';
 import { firestoreShopsService } from '../services/firestoreShopsService';
 import { shopService } from '../services/shopService';
-import { Shop, Product, AppNotification, NotificationType } from '../types';
+import { Shop, Product, AppNotification, NotificationType, View, ShopTier } from '../types';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
 import { ZAMBIAN_BANKS } from '../data/zambianData';
 import { AnalysisIcon, ProductsIcon, OrdersIcon, QRIcon, SettingsIcon, LogoutIcon, UserIcon, TrendingUpIcon, DollarIcon, ReceiptIcon, DocumentTextIcon, CheckCircleIcon, HistoryIcon, PackageIcon, ExclamationTriangleIcon, CameraIcon, KeyboardIcon, BellIcon, LockClosedIcon, ChevronLeftIcon, ChevronRightIcon, PlusCircleIcon, TrashIcon, CreditCardIcon, ClockIcon, PhotoIcon, HelpCircleIcon } from '../components/icons/NavigationIcons';
@@ -34,15 +34,6 @@ interface ShopPortalProps {
 
 type Menu = 'analysis' | 'products' | 'orders' | 'scan' | 'settings';
 
-interface Product {
-    id: number;
-    name: string;
-    price: number;
-    category: string;
-    image: string;
-    stock: number;
-}
-
 interface DeletedProduct extends Product {
     deletedAt: Date;
 }
@@ -62,7 +53,7 @@ interface ShopNotification {
     date: string;
     time: string;
     message: string;
-    productId?: number; // For quick actions
+    productId?: number | string; // For quick actions
     actionType?: 'restock' | 'review';
     rating?: number;
     author?: string;
@@ -152,7 +143,7 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
         closeTime: "18:00"
     });
 
-    const [taxProfile, setTaxProfile] = useState({
+    const [taxProfile, setTaxProfile] = useState<{ tpin: string, taxCategory: 'VAT' | 'TOT' | 'NONE' }>({
         tpin: '',
         taxCategory: 'NONE'
     });
@@ -182,8 +173,22 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
     const [currentProduct, setCurrentProduct] = useState<Omit<Product, 'id'> | Product>(initialProductFormState);
     const [productImagePreview, setProductImagePreview] = useState<string | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [productToDelete, setProductToDelete] = useState<number | null>(null);
+    const [productToDelete, setProductToDelete] = useState<number | string | null>(null);
     const [isTrashModalOpen, setIsTrashModalOpen] = useState(false);
+
+    // Product search and filter
+    const [productSearch, setProductSearch] = useState('');
+    const [productCategory, setProductCategory] = useState('all');
+    const productCategories = ['all', 'Drinks', 'Fruit/Cakes', 'Food', 'Toiletries', 'Other'];
+
+    // Filtered products based on search and category
+    const filteredProducts = useMemo(() => {
+        return products.filter(product => {
+            const matchesSearch = product.name.toLowerCase().includes(productSearch.toLowerCase());
+            const matchesCategory = productCategory === 'all' || product.category === productCategory;
+            return matchesSearch && matchesCategory;
+        });
+    }, [products, productSearch, productCategory]);
 
     // State for Notifications
     const [notifications, setNotifications] = useState<ShopNotification[]>(initialNotificationHistory);
@@ -266,7 +271,7 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
     }, [incomingNotifications]);
 
     // State for Orders page
-    const [activeOrderTab, setActiveOrderTab] = useState<'pickup' | 'history' | 'requests'>('pickup');
+    const [activeOrderTab, setActiveOrderTab] = useState<'pickup' | 'history' | 'requests' | 'cancelled'>('pickup');
     const [isDemoMode, setIsDemoMode] = useState(false); // Demo Mode State
 
     // State for QR Scan page
@@ -374,7 +379,7 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
         hasCheckedStock.current = true;
     }, [products, showToast]); // Run when products change or on mount
 
-    const handleQuickRestock = (productId: number) => {
+    const handleQuickRestock = (productId: number | string) => {
         const product = products.find(p => p.id === productId);
         if (product) {
             handleOpenProductModal('edit', product);
@@ -574,7 +579,9 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
         handleCloseProductModal();
     };
 
-    const handleDeleteProduct = (productId: number) => {
+
+
+    const handleDeleteProduct = (productId: number | string) => {
         setProductToDelete(productId);
         setIsDeleteModalOpen(true);
     };
@@ -604,7 +611,7 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
         showToast("Product restored to active stock", 'success');
     };
 
-    const handlePermanentDelete = (id: number) => {
+    const handlePermanentDelete = (id: number | string) => {
         setDeletedProducts(prev => prev.filter(p => p.id !== id));
         showToast("Permanently deleted", 'info');
     };
@@ -628,6 +635,12 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
                     if (b.pickupTime) return 1;
                     return 0;
                 });
+        }
+        if (activeOrderTab === 'cancelled') {
+            // Show cancelled orders, most recent first
+            return orders
+                .filter(order => order.status === 'cancelled')
+                .sort((a, b) => new Date(b.paidOn).getTime() - new Date(a.paidOn).getTime());
         }
         // For history, sort by collectedOn date, most recent first
         return orders
@@ -759,15 +772,85 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
 
                 return (
                     <div className="animate-fade-in space-y-8">
-                        <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                             <div>
                                 <h2 className="text-3xl font-bold text-gray-800">Dashboard Analysis</h2>
                                 <p className="text-gray-500 mt-1">Comprehensive overview of your shop's performance and insights.</p>
                             </div>
+                            <Button
+                                variant="secondary"
+                                onClick={() => setView('shopView')}
+                                className="flex items-center gap-2"
+                            >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                <span>View My Shop</span>
+                            </Button>
                         </div>
 
                         {/* Enhanced Performance Dashboard */}
                         <PerformanceDashboard analytics={shopAnalytics} />
+
+                        {/* Customer Insight & Order Performance Cards */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Customer Insight */}
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                    <div className="bg-indigo-100 text-indigo-600 p-2 rounded-full">
+                                        <UserIcon className="w-5 h-5" />
+                                    </div>
+                                    Customer Insight
+                                </h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="p-4 bg-gray-50 rounded-xl">
+                                        <p className="text-2xl font-bold text-gray-900">{shopAnalytics.totalCustomers}</p>
+                                        <p className="text-sm text-gray-500">Total Customers</p>
+                                    </div>
+                                    <div className="p-4 bg-gray-50 rounded-xl">
+                                        <p className="text-2xl font-bold text-green-600">+{shopAnalytics.newCustomersThisWeek}</p>
+                                        <p className="text-sm text-gray-500">New This Week</p>
+                                    </div>
+                                    <div className="p-4 bg-gray-50 rounded-xl">
+                                        <p className="text-2xl font-bold text-gray-900">{shopAnalytics.returningCustomerRate.toFixed(0)}%</p>
+                                        <p className="text-sm text-gray-500">Returning Rate</p>
+                                    </div>
+                                    <div className="p-4 bg-gray-50 rounded-xl">
+                                        <p className="text-2xl font-bold text-gray-900">{formatCurrency(shopAnalytics.averageOrderValue)}</p>
+                                        <p className="text-sm text-gray-500">Avg. Order Value</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Order Performance */}
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                    <div className="bg-purple-100 text-purple-600 p-2 rounded-full">
+                                        <PackageIcon className="w-5 h-5" />
+                                    </div>
+                                    Order Performance
+                                </h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="p-4 bg-gray-50 rounded-xl">
+                                        <p className="text-2xl font-bold text-gray-900">{shopAnalytics.todayOrders}</p>
+                                        <p className="text-sm text-gray-500">Today's Orders</p>
+                                    </div>
+                                    <div className="p-4 bg-gray-50 rounded-xl">
+                                        <p className="text-2xl font-bold text-gray-900">{shopAnalytics.weekOrders}</p>
+                                        <p className="text-sm text-gray-500">This Week</p>
+                                    </div>
+                                    <div className="p-4 bg-gray-50 rounded-xl">
+                                        <p className="text-2xl font-bold text-green-600">{shopAnalytics.completionRate.toFixed(0)}%</p>
+                                        <p className="text-sm text-gray-500">Completion Rate</p>
+                                    </div>
+                                    <div className="p-4 bg-gray-50 rounded-xl">
+                                        <p className="text-2xl font-bold text-orange-600">{shopAnalytics.pendingOrders}</p>
+                                        <p className="text-sm text-gray-500">Pending Pickup</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
                         {/* Revenue Chart */}
                         <RevenueChart data={shopAnalytics.dailyRevenue} />
@@ -947,7 +1030,7 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
             // ... [Other Cases: Products, Orders, Scan, Settings] ...
             case 'products': return (
                 <div className="animate-fade-in">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                         <h2 className="text-3xl font-bold text-gray-800">Products</h2>
                         <div className="flex gap-3">
                             <Button variant="secondary" onClick={() => setIsTrashModalOpen(true)} className="flex items-center gap-2 px-4">
@@ -968,9 +1051,43 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
                         </div>
                     </div>
 
-                    {products.length > 0 ? (
+                    {/* Search Bar */}
+                    <div className="mb-6">
+                        <div className="relative">
+                            <input
+                                type="text"
+                                placeholder="Search products..."
+                                value={productSearch}
+                                onChange={(e) => setProductSearch(e.target.value)}
+                                className="w-full sm:w-80 px-4 py-3 pl-10 border border-gray-200 rounded-xl focus:ring-2 focus:ring-kithly-primary/20 focus:border-kithly-primary transition-all bg-white"
+                            />
+                            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </div>
+                    </div>
+
+                    {/* Category Tabs */}
+                    <div className="mb-6 overflow-x-auto">
+                        <div className="flex gap-2 min-w-max">
+                            {productCategories.map(cat => (
+                                <button
+                                    key={cat}
+                                    onClick={() => setProductCategory(cat)}
+                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${productCategory === cat
+                                        ? 'bg-kithly-primary text-white shadow-md'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                >
+                                    {cat === 'all' ? 'All' : cat}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {filteredProducts.length > 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                            {products.map(product => (
+                            {filteredProducts.map(product => (
                                 <ProductManagementCard
                                     key={product.id}
                                     product={product}
@@ -978,6 +1095,14 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
                                     onDelete={() => handleDeleteProduct(product.id)}
                                 />
                             ))}
+                        </div>
+                    ) : products.length > 0 ? (
+                        <div className="text-center py-12 bg-white rounded-2xl shadow-sm border border-gray-100">
+                            <svg className="mx-auto w-12 h-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            <h3 className="mt-4 text-lg font-medium text-gray-600">No products match your search</h3>
+                            <p className="mt-1 text-sm text-gray-400">Try a different search term or category</p>
                         </div>
                     ) : (
                         <div className="text-center py-20 bg-white rounded-2xl shadow-md border border-dashed border-gray-300">
@@ -995,7 +1120,8 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
             case 'orders':
                 const orderTabs = [
                     { id: 'requests', name: 'Requests', icon: <BellIcon className="w-5 h-5" /> },
-                    { id: 'pickup', name: 'Kitchen / Dispatch', icon: <PackageIcon className="w-5 h-5" /> },
+                    { id: 'pickup', name: 'Scanned', icon: <PackageIcon className="w-5 h-5" /> },
+                    { id: 'cancelled', name: 'Cancelled', icon: <ExclamationTriangleIcon className="w-5 h-5" /> },
                     { id: 'history', name: 'History', icon: <HistoryIcon className="w-5 h-5" /> },
                 ];
                 return (
@@ -1246,7 +1372,7 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
                                     {renderTierStatus(currentShopTier)}
 
                                     {/* Demo Mode Toggle */}
-                                    <div className="mb-8 p-4 bg-purple-50 rounded-xl border border-purple-100 flex items-center justify-between">
+                                    <div className="mb-6 p-4 bg-purple-50 rounded-xl border border-purple-100 flex items-center justify-between">
                                         <div>
                                             <h4 className="font-bold text-purple-900">Shop Onboarding Mode</h4>
                                             <p className="text-xs text-purple-700">Enable practice features for training staff.</p>
@@ -1260,6 +1386,57 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
                                         >
                                             <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isDemoMode ? 'translate-x-6' : 'translate-x-1'}`} />
                                         </button>
+                                    </div>
+
+                                    {/* Shop Control Toggles */}
+                                    <div className="mb-8 space-y-4">
+                                        {/* Shop Disable Toggle */}
+                                        <div className="p-4 bg-red-50 rounded-xl border border-red-100 flex items-center justify-between">
+                                            <div>
+                                                <h4 className="font-bold text-red-900">Disable Shop</h4>
+                                                <p className="text-xs text-red-700">Temporarily hide your shop from customers. You won't receive new orders.</p>
+                                            </div>
+                                            <button
+                                                onClick={async () => {
+                                                    if (!currentShop?.id) return;
+                                                    const newValue = !currentShop.isDisabled;
+                                                    try {
+                                                        await firestoreShopsService.update(String(currentShop.id), { isDisabled: newValue });
+                                                        setCurrentShop({ ...currentShop, isDisabled: newValue });
+                                                        showToast(newValue ? "Shop Disabled - Not visible to customers" : "Shop Enabled - Now visible!", newValue ? 'info' : 'success');
+                                                    } catch (error) {
+                                                        showToast("Failed to update shop status", 'error');
+                                                    }
+                                                }}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 ${currentShop?.isDisabled ? 'bg-red-600' : 'bg-gray-200'}`}
+                                            >
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${currentShop?.isDisabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
+
+                                        {/* Products Disable Toggle */}
+                                        <div className="p-4 bg-orange-50 rounded-xl border border-orange-100 flex items-center justify-between">
+                                            <div>
+                                                <h4 className="font-bold text-orange-900">Disable All Products</h4>
+                                                <p className="text-xs text-orange-700">Shop visible but products hidden. Use when restocking or on break.</p>
+                                            </div>
+                                            <button
+                                                onClick={async () => {
+                                                    if (!currentShop?.id) return;
+                                                    const newValue = !currentShop.productsDisabled;
+                                                    try {
+                                                        await firestoreShopsService.update(String(currentShop.id), { productsDisabled: newValue });
+                                                        setCurrentShop({ ...currentShop, productsDisabled: newValue });
+                                                        showToast(newValue ? "Products Hidden" : "Products Now Visible!", newValue ? 'info' : 'success');
+                                                    } catch (error) {
+                                                        showToast("Failed to update products status", 'error');
+                                                    }
+                                                }}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${currentShop?.productsDisabled ? 'bg-orange-600' : 'bg-gray-200'}`}
+                                            >
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${currentShop?.productsDisabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <form onSubmit={handleFormSubmit} className="space-y-8">
@@ -1385,7 +1562,7 @@ const ShopPortal: React.FC<ShopPortalProps> = ({ setView, orders, onMarkAsCollec
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">Tax Category</label>
                                                     <select
                                                         value={taxProfile.taxCategory}
-                                                        onChange={(e) => setTaxProfile({ ...taxProfile, taxCategory: e.target.value })}
+                                                        onChange={(e) => setTaxProfile({ ...taxProfile, taxCategory: e.target.value as 'VAT' | 'TOT' | 'NONE' })}
                                                         className="block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-kithly-accent focus:border-kithly-accent"
                                                     >
                                                         <option value="NONE">Unregistered (None)</option>

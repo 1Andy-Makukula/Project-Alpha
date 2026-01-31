@@ -72,11 +72,10 @@ const AppContent: React.FC = () => {
     const loadShops = async () => {
       try {
         setShopsLoading(true);
-        const firestoreShops = await firestoreShopsService.getAll();
 
-        // ONLY show live shops to customers
-        const liveShops = firestoreShops.filter(shop => shop.status === 'live');
-        const shopsWithTiers = assignShopTiers(liveShops);
+        // Get visible shops (filters out disabled shops, only live or setup-complete)
+        const visibleShops = await firestoreShopsService.getVisibleShops();
+        const shopsWithTiers = assignShopTiers(visibleShops);
 
         // Filter by location if needed
         if (targetCity && targetCity !== 'All') {

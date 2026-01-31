@@ -5,24 +5,17 @@
  */
 
 import { Order } from '../../types';
-import { isMockMode } from '../../config/api.config';
-import { db as mockDb } from '../mockDatabase';
 import { firestoreOrdersService } from '../firestoreOrdersService';
 
 /**
  * @desc Orders API Service
- * Switches between mock data and real API based on configuration
+ * Uses Firestore for all operations
  */
 export const ordersApi = {
   /**
    * @desc Retrieves all orders for the current user/shop
    */
   getAll: async (): Promise<Order[]> => {
-    if (isMockMode()) {
-      return mockDb.orders.getAll();
-    }
-
-    // Use Firestore
     return firestoreOrdersService.getAll();
   },
 
@@ -31,11 +24,6 @@ export const ordersApi = {
    * @param {string} collectionCode - The unique collection code
    */
   getByCode: async (collectionCode: string): Promise<Order | null> => {
-    if (isMockMode()) {
-      return mockDb.orders.get(collectionCode);
-    }
-
-    // Use Firestore
     return firestoreOrdersService.getByCode(collectionCode);
   },
 
@@ -44,12 +32,6 @@ export const ordersApi = {
    * @param {string} orderId - The order ID
    */
   getById: async (orderId: string): Promise<Order | null> => {
-    if (isMockMode()) {
-      const orders = await mockDb.orders.getAll();
-      return orders.find(o => o.id === orderId) || null;
-    }
-
-    // Use Firestore
     return firestoreOrdersService.getById(orderId);
   },
 
@@ -58,11 +40,6 @@ export const ordersApi = {
    * @param {Order} newOrder - The order data
    */
   create: async (newOrder: Order): Promise<Order> => {
-    if (isMockMode()) {
-      return mockDb.orders.create(newOrder);
-    }
-
-    // Use Firestore
     const id = await firestoreOrdersService.create(newOrder);
     return { ...newOrder, id };
   },
@@ -76,11 +53,6 @@ export const ordersApi = {
     orderId: string,
     method: 'scan' | 'manual'
   ): Promise<boolean> => {
-    if (isMockMode()) {
-      return mockDb.orders.verifyAndCollect(orderId, method);
-    }
-
-    // Use Firestore
     try {
       await firestoreOrdersService.markAsCollected(orderId);
       return true;
@@ -91,22 +63,11 @@ export const ordersApi = {
   },
 
   /**
-   * @desc Updates order details (e.g., delivery coordinates)
+   * @desc Updates order details
    * @param {string} orderId - The order ID
    * @param {Partial<Order>} updates - The fields to update
    */
   update: async (orderId: string, updates: Partial<Order>): Promise<Order> => {
-    if (isMockMode()) {
-      // Mock update by fetching, merging, and returning
-      const orders = await mockDb.orders.getAll();
-      const order = orders.find(o => o.id === orderId);
-      if (!order) {
-        throw new Error('Order not found');
-      }
-      return { ...order, ...updates };
-    }
-
-    // Use Firestore - update status if provided
     if (updates.status) {
       await firestoreOrdersService.updateStatus(orderId, updates.status);
     }
@@ -117,13 +78,9 @@ export const ordersApi = {
 
   /**
    * @desc Exports orders ready for dispatch to CSV
-   * Generates CSV locally from Firestore data
    */
   exportToCSV: async (): Promise<Blob> => {
-    // Get all orders from Firestore (or mock)
-    const orders = isMockMode()
-      ? await mockDb.orders.getAll()
-      : await firestoreOrdersService.getAll();
+    const orders = await firestoreOrdersService.getAll();
 
     // Filter for orders that are paid (ready for pickup)
     const readyOrders = orders.filter(o => o.status === 'paid');

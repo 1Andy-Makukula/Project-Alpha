@@ -47,13 +47,23 @@ const ShopView: React.FC<ShopViewProps> = ({ setView, shopId, cartItemCount, onC
 
                 // Fetch shop details
                 const shopData = await firestoreShopsService.getById(shopId.toString());
-                if (shopData) {
-                    setShop(shopData);
-                }
 
-                // Fetch products for this shop
-                const shopProducts = await firestoreProductsService.getAll(shopId);
-                setProducts(shopProducts);
+                // Check if shop exists and is not disabled
+                if (shopData && !shopData.isDisabled) {
+                    setShop(shopData);
+
+                    // Only fetch products if shop's products are not disabled
+                    if (!shopData.productsDisabled) {
+                        const shopProducts = await firestoreProductsService.getAll(shopId);
+                        setProducts(shopProducts);
+                    } else {
+                        setProducts([]); // Products are temporarily disabled
+                    }
+                } else if (shopData?.isDisabled) {
+                    // Shop is temporarily disabled
+                    setShop(null);
+                    showToast('This shop is temporarily unavailable', 'info');
+                }
             } catch (error) {
                 console.error('Error fetching shop data:', error);
                 showToast('Failed to load shop data', 'error');

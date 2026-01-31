@@ -1,16 +1,15 @@
 /**
  * @file productsApi.ts
  * @description API service for product operations.
+ * Uses Firestore as the backend.
  */
 
 import { Product } from '../../types';
-import { API_ENDPOINTS, isMockMode } from '../../config/api.config';
-import { httpClient } from './httpClient';
-import { db as mockDb } from '../mockDatabase';
 import { firestoreProductsService } from '../firestoreProductsService';
 
 /**
  * @desc Products API Service
+ * Uses Firestore for all operations
  */
 export const productsApi = {
   /**
@@ -18,25 +17,14 @@ export const productsApi = {
    * @param {number} [shopId] - Optional shop ID to filter products
    */
   getAll: async (shopId?: number): Promise<Product[]> => {
-    if (isMockMode()) {
-      return mockDb.products.getAll(shopId);
-    }
-
-    // Use Firestore
     return firestoreProductsService.getAll(shopId);
   },
 
   /**
    * @desc Retrieves a single product by ID
-   * @param {number} productId - The product ID
+   * @param {number | string} productId - The product ID
    */
-  getById: async (productId: number): Promise<Product | null> => {
-    if (isMockMode()) {
-      const products = await mockDb.products.getAll();
-      return products.find(p => p.id === productId) || null;
-    }
-
-    // Use Firestore
+  getById: async (productId: number | string): Promise<Product | null> => {
     return firestoreProductsService.getById(productId.toString());
   },
 
@@ -45,13 +33,8 @@ export const productsApi = {
    * @param {Product} product - The product data
    */
   create: async (product: Product): Promise<Product> => {
-    if (isMockMode()) {
-      return mockDb.products.add(product);
-    }
-
-    // Use Firestore
     const id = await firestoreProductsService.create(product);
-    return { ...product, id: parseInt(id) };
+    return { ...product, id };
   },
 
   /**
@@ -64,24 +47,13 @@ export const productsApi = {
 
   /**
    * @desc Updates an existing product
-   * @param {number} productId - The product ID
+   * @param {number | string} productId - The product ID
    * @param {Partial<Product>} updates - The fields to update
    */
   update: async (
-    productId: number,
+    productId: number | string,
     updates: Partial<Product>
   ): Promise<Product> => {
-    if (isMockMode()) {
-      // Mock update
-      const products = await mockDb.products.getAll();
-      const product = products.find(p => p.id === productId);
-      if (!product) {
-        throw new Error('Product not found');
-      }
-      return { ...product, ...updates };
-    }
-
-    // Use Firestore
     await firestoreProductsService.update(productId.toString(), updates);
     const updated = await firestoreProductsService.getById(productId.toString());
     if (!updated) throw new Error('Product not found');
@@ -90,14 +62,9 @@ export const productsApi = {
 
   /**
    * @desc Deletes a product
-   * @param {number} productId - The product ID
+   * @param {number | string} productId - The product ID
    */
-  delete: async (productId: number): Promise<void> => {
-    if (isMockMode()) {
-      return mockDb.products.delete(productId);
-    }
-
-    // Use Firestore
+  delete: async (productId: number | string): Promise<void> => {
     await firestoreProductsService.delete(productId.toString());
   },
 };

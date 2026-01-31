@@ -6,11 +6,6 @@
 
 export const API_CONFIG = {
   /**
-   * API Mode: 'mock' for local stub data, 'live' for Firebase/Firestore
-   */
-  mode: (import.meta.env.VITE_API_MODE || 'live') as 'mock' | 'live',
-
-  /**
    * Payment Mode: 'live' for real Flutterwave, 'simulation' for testing
    */
   paymentMode: (import.meta.env.VITE_PAYMENT_MODE || 'simulation') as 'live' | 'simulation',
@@ -42,11 +37,6 @@ export const COLLECTIONS = {
   REVIEWS: 'reviews',
   TRANSACTIONS: 'transactions',
 };
-
-/**
- * @desc Helper to check if we're using mock data
- */
-export const isMockMode = () => API_CONFIG.mode === 'mock';
 
 /**
  * @desc Helper to check if payments are in simulation mode

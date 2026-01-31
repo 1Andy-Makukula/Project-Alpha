@@ -165,7 +165,7 @@ export const firestoreShopsService = {
       ...shopData,
       description: '',
       profilePic: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(shopData.name) + '&background=F85A47&color=fff',
-      coverImg: 'https://picsum.photos/id/1015/1200/500',
+      coverImg: '',
       category: '',
       location: '',
       isVerified: false,
@@ -177,23 +177,28 @@ export const firestoreShopsService = {
       reviewCount: 0,
       totalReviews: 0,
 
+      // Business type will be set in step 0 (not initialized here to avoid Firestore undefined error)
+
       // Onboarding fields
       status: 'draft' as const,
       emailVerified: false,
       termsAccepted: true, // Set during registration
       termsAcceptedDate: new Date().toISOString(),
       setupProgress: {
+        step0_businessType: false,
         step1_basicInfo: false,
         step2_location: false,
         step3_branding: false,
-        step4_products: false,
-        step5_payment: false,
+        step4_compliance: false,
+        step5_products: false,
+        step6_payment: false,
       },
       setupCompleted: false,
-      currentSetupStep: 1,
+      currentSetupStep: 0, // Start at step 0 (business type selection)
       createdAt: new Date().toISOString(),
       lastUpdated: new Date().toISOString(),
       businessVerified: false,
+      complianceDocuments: {},
     };
 
     return await this.create(draftShop as any);
@@ -294,5 +299,20 @@ export const firestoreShopsService = {
   async getByOwner(ownerId: string): Promise<Shop[]> {
     return queryDocuments<any>(COLLECTIONS.SHOPS, 'ownerId', '==', ownerId)
       .then(shops => shops.map(convertShopData));
+  },
+
+  /**
+ * Get visible shops for customers
+ * Filters out disabled shops and only returns live or setup-complete shops
+ * Works with both old (5-step) and new (7-step) setupProgress structures
+ */
+  async getVisibleShops(): Promise<Shop[]> {
+    const allShops = await this.getAll();
+    return allShops.filter(shop =>
+      !shop.isDisabled && (
+        shop.status === 'live' ||
+        (shop.status === 'draft' && shop.setupProgress?.step1_basicInfo === true)
+      )
+    );
   },
 };
