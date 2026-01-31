@@ -6,7 +6,7 @@ import { FlutterwaveIcon } from '../components/icons/BrandIcons';
 import { useFlutterwavePayment } from '../services/flutterwaveService';
 import { ToastType } from '../components/Toast';
 import AnimatedBackButton from '../components/AnimatedBackButton';
-import { StoreIcon, ClockIcon, ExclamationTriangleIcon } from '../components/icons/NavigationIcons';
+import { StoreIcon, ClockIcon } from '../components/icons/NavigationIcons';
 import { firestoreShopsService } from '../services/firestoreShopsService';
 
 interface CheckoutPageProps {
@@ -48,9 +48,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ setView, cart, onCheckout, 
         };
         fetchShop();
     }, [shopId]);
-
-    // Check if we're in simulation mode
-    const isSimulationMode = import.meta.env.VITE_PAYMENT_MODE === 'simulation';
 
     // --- Operational Logic State ---
     const [pickupTime, setPickupTime] = useState('ASAP');
@@ -161,27 +158,8 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ setView, cart, onCheckout, 
             if (!confirmed) return;
         }
 
-        // Check if we're in simulation mode
-        if (isSimulationMode) {
-            // Simulate payment processing
-            showToast("🔧 SIMULATION MODE: Processing payment...", "info");
-
-            setTimeout(() => {
-                showToast("✅ SIMULATION: Payment successful!", "success");
-                // Directly call onCheckout without going through Flutterwave
-                onCheckout(
-                    recipient,
-                    message,
-                    {
-                        pickupTime: isRestaurant ? finalPickupTime : undefined,
-                        orderType: hasMadeToOrderItems ? 'request' : 'instant'
-                    }
-                );
-            }, 1500); // Simulate a brief delay
-        } else {
-            // Trigger real Flutterwave Payment
-            handlePayment();
-        }
+        // Trigger real Flutterwave Payment
+        handlePayment();
     };
 
     if (cart.length === 0) {
@@ -211,19 +189,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ setView, cart, onCheckout, 
                     {/* Left side: Form */}
                     <div>
                         <h1 className="text-3xl font-bold text-kithly-dark mb-6">Checkout</h1>
-
-                        {/* Simulation Mode Banner */}
-                        {isSimulationMode && (
-                            <div className="mb-6 bg-gradient-to-r from-purple-50 to-pink-50 border-l-4 border-purple-500 p-4 rounded-r-lg flex items-start gap-3 animate-pulse">
-                                <ExclamationTriangleIcon className="w-6 h-6 text-purple-500 flex-shrink-0 mt-0.5" />
-                                <div>
-                                    <p className="font-bold text-purple-800">🔧 SIMULATION MODE ACTIVE</p>
-                                    <p className="text-sm text-purple-700">
-                                        Payments are simulated. No real transactions will occur. Perfect for testing!
-                                    </p>
-                                </div>
-                            </div>
-                        )}
 
                         {/* Shop Closed Warning */}
                         {!shopStatus.isOpen && (
@@ -387,9 +352,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ setView, cart, onCheckout, 
                             </section>
 
                             <Button type="submit" variant="primary" className={`w-full text-lg py-4 ${hasMadeToOrderItems ? 'bg-kithly-dark hover:bg-gray-800' : ''}`}>
-                                {isSimulationMode && '🔧 '}
                                 {hasMadeToOrderItems ? 'Request Order' : `Pay ZMK ${total.toFixed(2)}`}
-                                {isSimulationMode && ' (Simulated)'}
                             </Button>
                             {hasMadeToOrderItems && (
                                 <p className="text-center text-xs text-gray-500 mt-2">

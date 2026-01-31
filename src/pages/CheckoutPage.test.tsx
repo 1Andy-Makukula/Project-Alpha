@@ -2,6 +2,29 @@ import { render, screen } from '@testing-library/react';
 import CheckoutPage from './CheckoutPage';
 import '@testing-library/jest-dom';
 
+// Mock services to prevent real Firebase/Network calls
+jest.mock('../services/firebase', () => ({
+  auth: {},
+  db: {},
+}));
+
+jest.mock('../services/firestoreShopsService', () => ({
+  firestoreShopsService: {
+    getById: jest.fn().mockResolvedValue({
+      id: 1,
+      name: 'Shop 1',
+      category: 'Retail',
+      openingHours: '08:00 - 18:00',
+    }),
+  },
+}));
+
+jest.mock('../services/flutterwaveService', () => ({
+  useFlutterwavePayment: jest.fn().mockReturnValue({
+    handlePayment: jest.fn(),
+  }),
+}));
+
 describe('CheckoutPage', () => {
   const cart = [
     {
@@ -32,7 +55,7 @@ describe('CheckoutPage', () => {
     },
   ];
 
-  it('calculates the total correctly', () => {
+  it('calculates the total correctly', async () => {
     render(
       <CheckoutPage
         setView={() => {}}
@@ -47,6 +70,9 @@ describe('CheckoutPage', () => {
     const processingFee = (subtotal + kithlyFee) * 0.029;
     const total = subtotal + kithlyFee + processingFee;
 
-    expect(screen.getByText(`ZMK ${total.toFixed(2)}`)).toBeInTheDocument();
+    // Use findByText to wait for any async renders if needed (though calculation is sync)
+    // The total is rendered as "ZMK {total.toFixed(2)}"
+    // Note: The component might calculate slightly differently due to float precision, so strict check is good but be careful.
+    expect(await screen.findByText(`ZMK ${total.toFixed(2)}`)).toBeInTheDocument();
   });
 });

@@ -4,9 +4,9 @@
 
 # KithLy - Zambia's Premier Marketplace Platform
 
-A modern React/TypeScript marketplace application designed for the informal economy, with headless Django backend support.
+A modern React/TypeScript marketplace application designed for the informal economy.
 
-**Current Status:** ✅ Frontend Complete | 🔄 Backend Integration Ready
+**Current Status:** ✅ Production Ready | 🔄 Live Data
 
 ---
 
@@ -14,50 +14,33 @@ A modern React/TypeScript marketplace application designed for the informal econ
 
 **Prerequisites:** Node.js 16+
 
-### Running the App
+### Setup
 
-```bash
-# 1. Install dependencies
-npm install
+1. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-# 2. Start development server
-npm run dev
+2. **Configure Environment**
+   - Copy `.env.example` to `.env`
+   - Fill in your Firebase configuration and Flutterwave Public Key.
 
-# 3. Open browser
-# http://localhost:5173
-```
-
-**Note:** Currently running in **mock mode** with localStorage. Real database integration coming soon!
+3. **Start development server**
+   ```bash
+   npm run dev
+   ```
 
 ---
 
 ## 📚 Documentation
 
-### 🆕 Latest Updates (Jan 2026)
-- **[REFACTORING_SUMMARY.md](./REFACTORING_SUMMARY.md)** - Complete Wizard of Oz refactoring summary
-- **[QUICK_REFERENCE.md](./QUICK_REFERENCE.md)** - Quick start guide with visual flow diagrams
-- **[LOGISTICS_FLOW.md](./LOGISTICS_FLOW.md)** - WhatsApp-based delivery verification system
-- **[DJANGO_IMPLEMENTATION.md](./DJANGO_IMPLEMENTATION.md)** - Complete backend implementation guide
-- **[PAYMENT_SIMULATION_GUIDE.md](./PAYMENT_SIMULATION_GUIDE.md)** - Testing payments without credentials
-
 ### For Developers:
 - **[API_CONTRACT.md](./API_CONTRACT.md)** - JSON examples for Django developer
 - **[DJANGO_BACKEND_SPEC.md](./DJANGO_BACKEND_SPEC.md)** - Technical specification for Django
 
-### Workflows:
-- **[Feature Implementation Plan](./.agent/workflows/feature-implementation-plan.md)** - Feature roadmap
-- **[Wizard of Oz Refactor](./.agent/workflows/wizard-of-oz-refactor.md)** - Implementation checklist
-
 ---
 
 ## 🎯 Key Features
-
-### 🆕 Wizard of Oz Logistics (NEW!)
-- **WhatsApp Verification** - Recipients share GPS location via WhatsApp
-- **Manual Address Capture** - Admin captures delivery addresses from WhatsApp pins
-- **CSV Export for Yango** - Batch export orders for courier assignment
-- **Driver Assignment Gate** - Shops can't handover without driver assigned
-- **Payment Simulation** - Test full checkout flow without payment gateway
 
 ### Shopping Experience
 - **Multi-Shop Cart** - Order from multiple shops simultaneously
@@ -89,17 +72,9 @@ npm run dev
 - **Target Backend:** Django REST Framework + PostgreSQL
 - **External Services:** Twilio WhatsApp API, Yango Business
 
-### Current Mode
-```env
-VITE_API_MODE=mock              # Uses localStorage
-VITE_PAYMENT_MODE=simulation    # No real payments
-```
-
-Switch to live when Django is ready:
+### Environment Variables
 ```env
 VITE_API_MODE=live
-VITE_API_BASE_URL=http://localhost:8000/api
-VITE_PAYMENT_MODE=live
 VITE_FLUTTERWAVE_PUBLIC_KEY=your_key_here
 ```
 

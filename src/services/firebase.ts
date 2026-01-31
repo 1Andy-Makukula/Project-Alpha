@@ -9,13 +9,13 @@ import { getStorage } from 'firebase/storage';
 
 // 1. Paste your keys from the Firebase Console here
 const firebaseConfig = {
-  apiKey: "AIzaSyBPGuESAL5kQBYCJ5z8gTRzHfgugrT-oug",
-  authDomain: "kithly-mvp.firebaseapp.com",
-  projectId: "kithly-mvp",
-  storageBucket: "kithly-mvp.firebasestorage.app",
-  messagingSenderId: "283236866942",
-  appId: "1:283236866942:web:eed2ae159f68ad33a3f12f",
-  measurementId: "G-XGXHBWDSLL"
+  apiKey: import.meta.env.VITE_API_KEY,
+  authDomain: import.meta.env.VITE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_APP_ID,
+  measurementId: import.meta.env.VITE_MEASUREMENT_ID
 };
 
 // 2. Initialize the App
